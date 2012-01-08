@@ -1,2 +1,15 @@
 // This File is imported last, and will override other styles in the cascade
 // Add styles here to make changes without digging in too much
+
+.entry-content {
+  font-size: 0.85em;
+}
+
+.stackoverflow a {
+  text-decoration: none;
+}
+
+.stackoverflow a img {
+  -moz-box-sizing: content-box;
+  box-sizing: content-box;
+}

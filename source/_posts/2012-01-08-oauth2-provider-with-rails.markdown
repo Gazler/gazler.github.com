@@ -15,13 +15,16 @@ I have created screencasts to go along with this tutorial.  This is my first att
 
 *Download* [mp4 format](http://screencasts.gazler.com/provider.mp4) [ogv format](http://screencasts.gazler.com/provider.ogv) [avi format](http://screencasts.gazler.com/provider.avi)
 
-##Creating The Provilder
+##Creating The Provider
 
 Start by opening up your terminal.  For demonstration purposes I recommend creating a folder called oauth to put both the provider and consumer.
+
+<!-- more -->
 
     mkdir oauth && cd oauth
     rails new provider
     cd provider
+
     
 The next step is to add the oauth-plugin gem to your Gemfile.  For this demo I will also be using devise for authentication.  If you wish to use RSpec as your testing framework, now would be the time to add it.
 

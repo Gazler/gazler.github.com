@@ -5,9 +5,13 @@ date: 2012-01-08 21:16
 comments: true
 categories:  ["rails", "ruby", "oauth"]
 ---
-
+**This is part 1 of creating an OAuth based API with rails.  [Part 2 is available here](http://blog.gazler.com/blog/2012/01/11/oauth2-consumer-with-sinatra/).**
 
 Recently I had the need to create an Oauth2 authenticated API.  The following is an app in its most simple form to get you started with creating and testing an Oauth2 powered API, using oauth-plugin, devise and rspec.
+
+##Source
+
+The source for both the provider and the consumer are available [here](https://github.com/Gazler/Oauth2-Tutorial)
 
 ##Screencasts
 

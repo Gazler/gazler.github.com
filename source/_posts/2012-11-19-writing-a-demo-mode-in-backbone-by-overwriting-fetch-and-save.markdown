@@ -8,7 +8,7 @@ categories:  ["backbone.js", "javascript"]
 
 ##Background
 
-When writing an application in Backbone, it is highly likely that you utilize [fetch()](http://backbonejs.org/#Collection-fetch) to retrieve data from your web server and [save()](http://backbonejs.org/#Model-save) to store data on it.  This is exactly what we did for [Uptilt](http://upti.lt) our entry for the Rails Rumble 2012 (the making of you can read about on [http://uptiltgame.tumblr.com/](the Uptilt Blog)).
+When writing an application in Backbone, it is highly likely that you utilize [fetch()](http://backbonejs.org/#Collection-fetch) to retrieve data from your web server and [save()](http://backbonejs.org/#Model-save) to store data on it.  This is exactly what we did for [Uptilt](http://upti.lt) our entry for the Rails Rumble 2012 (the making of you can read about on [the Uptilt Blog](http://uptiltgame.tumblr.com/)).
 
 One of the key issues with Uptilt being a two player game is that it needs two people to play the game.  The solution to this is to use a demo (or practice) mode.  In the case of Uptilt, this involved implementing the game rules for card comparison client-side.  We also didn't want any interaction with the server when the practice game is in progress as the game is not recorded in the database.
 

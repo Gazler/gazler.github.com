@@ -10,6 +10,10 @@ categories:
 
 So, you just got your hands on the pebble SDK and are looking to write yourself a watch face?  This post will introduce the creation of a watch face from the prototyping stage to packaging it up and running it on your device.  The watch face I will be using for this tutorial is the "Times Square" watch face - the first one I wrote the day I got my hands.  It is based off of the [Pimp - Pimpin Ain't Easy](http://www.tokyoflash.com/en/watch_museum/pimp/pimpinainteasyipblack/) which I used as my main watch for about 5 or 6 years until I lost it this year.  :(  The watchface took about 2 hours to create from installing the SDK to getting it on my wrist.
 
+##Repository
+
+The repository is available at [Times Square on Github](https://github.com/gazler/pebble-times-square)
+
 <!-- more -->
 
 ##Prototyping

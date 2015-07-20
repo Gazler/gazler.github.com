@@ -14,7 +14,7 @@ The source code for this repository is available at [https://github.com/Gazler/p
 
 ## Getting Started
 
-The first this we will need is a new Phoenix application. Since it is focused on subdomains, I am going to call it subdomainer:
+The first thing we will need is a new Phoenix application. Since it is focused on subdomains, I am going to call it subdomainer:
 
     mix phoenix.new subdomainer
 
@@ -30,7 +30,7 @@ With these additions, you should also be able to access the application via: [ht
 
 Currently these all point to the same page, but we are going to modify it so that it displays information about the particular app that we are trying to visit.
 
-## Determining If An App Has Been Set
+## Determining If A Subdomain Has Been Set
 
 <!-- more -->
 

@@ -50,24 +50,39 @@ With:
   url: [host: "subdomainer.dev"]
 {% endcodeblock %}
 
-We now need to update our router so it knows if a subdomain has been provided in the URL. Add the following to the `web/router.ex` file near the top:
+We now need to update our endpoint so it knows if a subdomain has been provided in the URL. Create a file `lib/subdomainer/plugs/subdomain.ex` file with the following:
 
 {% codeblock lang:elixir %}
-  def call(conn, opts) do
+defmodule Subdomainer.Plug.Subdomain do
+  import Plug.Conn
+
+  @doc false
+  def init(default), do: default
+
+  @doc false
+  def call(conn, router) do
     case get_subdomain(conn.host) do
       subdomain when byte_size(subdomain) > 0 ->
-        Subdomainer.SubdomainRouter.call(conn, Subdomainer.SubdomainRouter.init(opts))
-      _ -> super(conn, opts)
+        conn
+        |> router.call(router.init({}))
+      _ -> conn
     end
   end
 
   defp get_subdomain(host) do
-    root_host = Subdomainer.Endpoint.config[:url][:host]
+    root_host = Subdomainer.Endpoint.config(:url)[:host]
     String.replace(host, ~r/.?#{root_host}/, "")
   end
+end
 {% endcodeblock %}
 
-This code here overrides the [`call`](https://github.com/phoenixframework/phoenix/blob/3fc98f8b18095b6d155f5afd824f7c5e24447187/lib/phoenix/router.ex#L257) function in the router. This means that our code will be executed before the route matches are handled. This allows is to check if a subdomain is set - and if it use, use a different router. If no subdomain is set then it will continue to use the current router.
+This code here implements the `call/2` function expected by plug. This second argument we expect is the module that will be used if a subdomain is found. This also needs to be added to `lib/subdomainer/endpoint.ex` so that we can ensure our plug is called before the router. Add the following line **before** the `plug :router, Subdomainer.Router` line:
+
+{% codeblock lang:elixir %}
+  plug Subdomainer.Plug.Subdomain, Subdomainer.SubdomainRouter
+{% endcodeblock %}
+
+You will need to restart your server and start it again (with `mix phoenix.server`) every time you make a change to a file in the `lib` directory as only changes in the `web` directory do not require a reload.
 
 You can validate that this is working by visiting [http://subdomainer.dev:4000](http://subdomainer.dev:4000) which will still work as before, however if you visit [http://foo.subdomainer.dev:4000](http://foo.subdomainer.dev:4000) then you will see an error:
 
@@ -130,6 +145,24 @@ end
 
 You will note that `PageController` has been used as the name both times. This name is not important, it just needs to match the path from the `scope` block in the router.
 
+This will work, but you will probably see the following error in your terminal:
+
+ > (exit) an exception was raised: ** (Plug.Conn.AlreadySentError) the response was already sent
+
+This is simple to fix - we just need to prevent additional plugs from running if a subdomain is found modify `lib/subdomainer/plugs/subdomain.ex` to include a call to [Plug.Conn.halt/1](http://hexdocs.pm/plug/0.14.0/Plug.Conn.html#halt/1):
+
+{% codeblock lang:elixir %}
+  def call(conn, router) do
+    case get_subdomain(conn.host) do
+      subdomain when byte_size(subdomain) > 0 ->
+        conn
+        |> router.call(router.init({}))
+        |> halt
+      _ -> conn
+    end
+  end
+{% endcodeblock %}
+
 ## Customize response based on subdomain
 
 The last thing to do for this is to customize the response based on the which subdomain has been visited. To do this, we will add it to the `private` storage that exists in a `Plug.Conn` which you can read about [in the Plug docs](http://hexdocs.pm/plug/Plug.Conn.html#put_private/3)
@@ -142,8 +175,9 @@ We will do this in the `Subdomainer.Router` module where we did the initial chec
       subdomain when byte_size(subdomain) > 0 ->
         conn
         |> put_private(:subdomain, subdomain)
-        |> Subdomainer.SubdomainRouter.call(Subdomainer.SubdomainRouter.init(opts))
-      _ -> super(conn, opts)
+        |> router.call(router.init({}))
+        |> halt
+      _ -> conn
     end
   end
 {% endcodeblock %}

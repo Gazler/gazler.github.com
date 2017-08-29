@@ -1,0 +1,530 @@
+
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>OAuth2 Provider With Rails - Gazler</title>
+  <meta name="author" content="Gary Rennie">
+
+  
+  <meta name="description" content="This is part 1 of creating an OAuth based API with rails. Part 2 is available here. Recently I had the need to create an Oauth2 authenticated API. &hellip;">
+  
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+  <link rel="canonical" href="http://Gazler.github.com/blog/2012/01/08/oauth2-provider-with-rails/">
+  <link href="/favicon.png" rel="icon">
+  <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+  <script src="/javascripts/modernizr-2.0.js"></script>
+  <script src="/javascripts/ender.js"></script>
+  <script src="/javascripts/octopress.js" type="text/javascript"></script>
+  <link href="/atom.xml" rel="alternate" title="Gazler" type="application/atom+xml">
+  <!--Fonts from Google"s Web font directory at http://google.com/webfonts -->
+<link href="http://fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+<link href="http://fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+
+  
+  <script type="text/javascript">
+    var _gaq = _gaq || [];
+    _gaq.push(['_setAccount', 'UA-28197078-2']);
+    _gaq.push(['_trackPageview']);
+
+    (function() {
+      var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+      ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+    })();
+  </script>
+
+
+</head>
+
+<body   >
+  <header role="banner"><hgroup>
+  <h1><a href="/">Gazler</a></h1>
+  
+    <h2>Brought to you by the founder of Githug!</h2>
+  
+</hgroup>
+
+</header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="/atom.xml" rel="subscribe-rss" title="subscribe via RSS">RSS</a></li>
+  
+</ul>
+  
+<form action="http://google.com/search" method="get">
+  <fieldset role="search">
+    <input type="hidden" name="q" value="site:Gazler.github.com" />
+    <input class="search" type="text" name="q" results="0" placeholder="Search"/>
+  </fieldset>
+</form>
+  
+<ul class="main-navigation">
+  <li><a href="/">Blog</a></li>
+  <li><a href="/blog/archives">Archives</a></li>
+  <li><a href="/talks">Talks</a></li>
+</ul>
+
+</nav>
+  <div id="main">
+    <div id="content">
+      <div>
+<article class="hentry" role="article">
+  
+  <header>
+    
+      <h1 class="entry-title">OAuth2 Provider With Rails</h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2012-01-08T21:16:00+00:00" pubdate data-updated="true">Jan 8<span>th</span>, 2012</time>
+        
+         | <a href="#disqus_thread">Comments</a>
+        
+      </p>
+    
+  </header>
+
+
+<div class="entry-content"><p><strong>This is part 1 of creating an OAuth based API with rails.  <a href="http://blog.gazler.com/blog/2012/01/11/oauth2-consumer-with-sinatra/">Part 2 is available here</a>.</strong></p>
+
+<p>Recently I had the need to create an Oauth2 authenticated API.  The following is an app in its most simple form to get you started with creating and testing an Oauth2 powered API, using oauth-plugin, devise and rspec.</p>
+
+<h2>Source</h2>
+
+<p>The source for both the provider and the consumer are available <a href="https://github.com/Gazler/Oauth2-Tutorial">here</a></p>
+
+<h2>Screencasts</h2>
+
+<p>I have created screencasts to go along with this tutorial.  This is my first attempt at screencasting, so please drop me a message if you find them useful or if there is anything you think can be improved.  Your feedback is appreciated.</p>
+
+<p><em>Download</em> <a href="http://screencasts.gazler.com/provider.mp4">mp4 format</a> <a href="http://screencasts.gazler.com/provider.ogv">ogv format</a> <a href="http://screencasts.gazler.com/provider.avi">avi format</a></p>
+
+<h2>Creating The Provider</h2>
+
+<p>Start by opening up your terminal.  For demonstration purposes I recommend creating a folder called oauth to put both the provider and consumer.</p>
+
+<!-- more -->
+
+
+<pre><code>mkdir oauth &amp;&amp; cd oauth
+rails new provider
+cd provider
+</code></pre>
+
+<p>The next step is to add the oauth-plugin gem to your Gemfile.  For this demo I will also be using devise for authentication.  If you wish to use RSpec as your testing framework, now would be the time to add it.</p>
+
+<figure class='code'><figcaption><span>Gemfile  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">gem</span> <span class="s1">&#39;devise&#39;</span>
+</span><span class='line'><span class="n">gem</span> <span class="s2">&quot;oauth-plugin&quot;</span><span class="p">,</span> <span class="s2">&quot;&gt;= 0.4.0.rc2&quot;</span>
+</span><span class='line'><span class="n">group</span> <span class="ss">:test</span> <span class="k">do</span>
+</span><span class='line'>    <span class="n">gem</span> <span class="s1">&#39;rspec-rails&#39;</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>You should run <em>bundle install</em> to install the oauth-plugin (and rspec.)</p>
+
+<p>If you are using rspec then run:</p>
+
+<pre><code>rails g rspec:install
+</code></pre>
+
+<p>If you are using devise then you should create your devise install and user.</p>
+
+<pre><code>rails generate devise:install
+rails generate devise User
+</code></pre>
+
+<p>Then create the oauth provider (Note I am using rspec)</p>
+
+<pre><code>rails g oauth_provider --test-framework=rspec
+</code></pre>
+
+<p>And migrate the database</p>
+
+<pre><code>rake db:migrate
+</code></pre>
+
+<p>Might as well do the test database here too</p>
+
+<pre><code>rake db:test:prepare
+</code></pre>
+
+<p>This will generate some files, there are a few changes required for everything to work.  The first is to delete the file <em>spec/controllers/oauth_clients_controller_spec.rb</em> as mentioned in <a href="https://github.com/pelle/oauth-plugin/commit/6e24ec0ee2f3dc871756b2e8a75fa2181ff504f4">this commit</a>.  You should also remove <em>/spec/models/oauth_token_spec.rb</em> as we are dealing exclusively with oauth2.
+The second change is in your <em>config/routes.rb</em> file, add:</p>
+
+<figure class='code'><figcaption><span>config/routes/rb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">root</span> <span class="ss">:to</span> <span class="o">=&gt;</span> <span class="s2">&quot;oauth_clients#index&quot;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>You will also need to add the following methods to your <em>app/controllers/application_controller.rb</em> to make things work as the oauth-plugin gem required a current_user= method.</p>
+
+<figure class='code'><figcaption><span>app/controllers/application_controller.rb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">def</span> <span class="nf">current_user</span><span class="o">=</span><span class="p">(</span><span class="n">user</span><span class="p">)</span>
+</span><span class='line'>  <span class="n">current_user</span> <span class="o">=</span> <span class="n">user</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>You need to add the following to your user model:</p>
+
+<figure class='code'><figcaption><span>app/models/user.rb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">has_many</span> <span class="ss">:client_applications</span>
+</span><span class='line'><span class="n">has_many</span> <span class="ss">:tokens</span><span class="p">,</span> <span class="ss">:class_name</span><span class="o">=&gt;</span><span class="s2">&quot;Oauth2Token&quot;</span><span class="p">,</span><span class="ss">:order</span><span class="o">=&gt;</span><span class="s2">&quot;authorized_at desc&quot;</span><span class="p">,</span><span class="ss">:include</span><span class="o">=&gt;[</span><span class="ss">:client_application</span><span class="o">]</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>You need to add the following attr_accessor to <em>app/models/oauth_token.rb</em></p>
+
+<figure class='code'><figcaption><span>app/models/oauth_token.rb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="kp">attr_accessor</span> <span class="ss">:expires_at</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The following alias to <em>app/controllers/oauth_controller.rb</em> <strong>and</strong> <em>app/controllers/oauth_clients_controller.rb</em></p>
+
+<figure class='code'><figcaption><span>app/controllers/oauth_controller.rb|app/controllers/oauth_clients_controller.rb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">alias</span> <span class="ss">:login_required</span> <span class="ss">:authenticate_user!</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>And finally add the following to <em>config/application.rb</em></p>
+
+<figure class='code'><figcaption><span>config/application.rb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="nb">require</span> <span class="s1">&#39;oauth/rack/oauth_filter&#39;</span>
+</span><span class='line'><span class="n">config</span><span class="o">.</span><span class="n">middleware</span><span class="o">.</span><span class="n">use</span> <span class="no">OAuth</span><span class="o">::</span><span class="no">Rack</span><span class="o">::</span><span class="no">OAuthFilter</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>For the purposes of this test, we will use fixtures, I recommend using factories for real testing.  Grab the 4 fixtures files out of <em>spec/fixtures</em> (I got them from the oauth-plugin but they were not included in the generator)</p>
+
+<p>After these files are included, you can run rspec to test what we have so far.</p>
+
+<pre><code>bundle exec rspec spec
+</code></pre>
+
+<p>There should be 23 examples, all passing.</p>
+
+<p>You should now create a basic rspec test for what will be your API call.  Grab my one out of <em>spec/api/v1/data_controller_spec.rb</em>  Also copy the file <em>support/api_helper.rb</em></p>
+
+<p>When you run rspec on this, it should error, you now need to create your API controller.  Since in this example all the API calls will require a valid oauth token, let&#8217;s create a base controller and then our data controller.</p>
+
+<pre><code>rails g controller API::V1::Base
+rails g controller API::V1::Data
+</code></pre>
+
+<p>Change the DataController so it extends API::V1::BaseController</p>
+
+<figure class='code'><figcaption><span>app/controllers/api/v1/data_controller.rb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">class</span> <span class="nc">Api</span><span class="o">::</span><span class="no">V1</span><span class="o">::</span><span class="no">DataController</span> <span class="o">&lt;</span> <span class="no">Api</span><span class="o">::</span><span class="no">V1</span><span class="o">::</span><span class="no">BaseController</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Now create the routes, add the following to your <em>config/routes.rb</em> file</p>
+
+<figure class='code'><figcaption><span>config/routes.rb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">namespace</span> <span class="ss">:api</span> <span class="k">do</span>
+</span><span class='line'>  <span class="n">namespace</span> <span class="ss">:v1</span> <span class="k">do</span>
+</span><span class='line'>    <span class="n">match</span> <span class="s2">&quot;data&quot;</span> <span class="o">=&gt;</span> <span class="s2">&quot;data#show&quot;</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>You will need a show action in your data controller (<em>app/controllers/api/v1/data_controller.rb</em>)</p>
+
+<figure class='code'><figcaption><span>app/controllers/api/v1/data_controller.rb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">def</span> <span class="nf">show</span>
+</span><span class='line'>  <span class="n">respond_with</span> <span class="p">({</span><span class="ss">:super_secret</span> <span class="o">=&gt;</span> <span class="s2">&quot;oauth_data&quot;</span><span class="p">})</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>You will also need to specify the formats that your controllers responds to in your base controller (<em>app/controllers/api/v1/base_controller.rb</em>)</p>
+
+<figure class='code'><figcaption><span>app/controllers/api/v1/base_controller.rb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">respond_to</span> <span class="ss">:json</span><span class="p">,</span> <span class="ss">:xml</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>You should also specify which methods require oauth, since it is all in this case, also add the following to your base controllers (the interactive flag is the equivalant of oauth_or_login_required, we want oauth only so we disable it.</p>
+
+<figure class='code'><figcaption><span>app/controllers/api/v1/base_controller.rb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">oauthenticate</span> <span class="ss">:interactive</span><span class="o">=&gt;</span><span class="kp">false</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>If we run our test specs again now, they should pass and there you have it, the beginnings of an Oauth2 API.</p>
+
+<p>Stay tuned for part 2, The Consumer.</p>
+</div>
+
+
+  <footer>
+    <p class="meta">
+      
+  
+
+<span class="byline author vcard">Posted by <span class="fn">Gary Rennie</span></span>
+
+      
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2012-01-08T21:16:00+00:00" pubdate data-updated="true">Jan 8<span>th</span>, 2012</time>
+      
+
+<span class="categories">
+  
+    <a class='category' href='/blog/categories/oauth/'>oauth</a>, <a class='category' href='/blog/categories/rails/'>rails</a>, <a class='category' href='/blog/categories/ruby/'>ruby</a>
+  
+</span>
+
+
+    </p>
+    
+      <div class="sharing">
+  
+  <a href="http://twitter.com/share" class="twitter-share-button" data-url="http://Gazler.github.com/blog/2012/01/08/oauth2-provider-with-rails/" data-via="TheGazler" data-counturl="http://Gazler.github.com/blog/2012/01/08/oauth2-provider-with-rails/" >Tweet</a>
+  
+  
+  <div class="g-plusone" data-size="medium"></div>
+  
+  
+    <div class="fb-like" data-send="true" data-width="450" data-show-faces="false"></div>
+  
+</div>
+
+    
+    <p class="meta">
+      
+      
+        <a class="basic-alignment right" href="/blog/2012/01/11/oauth2-consumer-with-sinatra/" title="Next Post: OAuth2 Consumer With Sinatra">OAuth2 Consumer With Sinatra &raquo;</a>
+      
+    </p>
+  </footer>
+</article>
+
+  <section>
+    <h1>Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+</div>
+  </section>
+
+</div>
+
+<aside class="sidebar">
+  
+    
+<section class="stackoverflow">
+  <h1>Stack Overflow</h1>
+  <a href="http://stackoverflow.com/users/219743/Gazler">
+  <img src="http://stackoverflow.com/users/flair/219743.png" width="208" height="58" alt="profile for Gazler at Stack Overflow, Q&amp;A for professional and enthusiast programmers" title="profile for Gazler at Stack Overflow, Q&amp;A for professional and enthusiast programmers">
+  </a>
+</section>
+
+
+
+<section>
+  <h1>Recent Posts</h1>
+  <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2015/07/18/subdomains-with-phoenix/">Subdomains With Phoenix</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2013/01/30/writing-your-first-pebble-watchface/">Writing Your First Pebble Watchface</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2012/11/19/writing-a-demo-mode-in-backbone-by-overwriting-fetch-and-save/">Writing a Demo Mode in Backbone</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2012/04/24/how-travis-is-teaching-me-to-cook/">How Travis Is Teaching Me To Cook</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2012/04/02/making-backbone-applications-realtime-with-pusher/">Making Backbone Applications Realtime With Pusher</a>
+      </li>
+    
+  </ul>
+</section>
+
+<section>
+  <h1>GitHub Repos</h1>
+  <ul id="gh_repos">
+    <li class="loading">Status updating...</li>
+  </ul>
+  
+  <a href="https://github.com/Gazler">@Gazler</a> on GitHub
+  
+  <script type="text/javascript">
+    $.domReady(function(){
+        if (!window.jXHR){
+            var jxhr = document.createElement('script');
+            jxhr.type = 'text/javascript';
+            jxhr.src = '/javascripts/libs/jXHR.js';
+            var s = document.getElementsByTagName('script')[0];
+            s.parentNode.insertBefore(jxhr, s);
+        }
+
+        github.showRepos({
+            user: 'Gazler',
+            count: 4,
+            skip_forks: true,
+            target: '#gh_repos'
+        });
+    });
+  </script>
+  <script src="/javascripts/github.js" type="text/javascript"> </script>
+</section>
+
+
+<section>
+  <h1>Latest Tweets</h1>
+  <ul id="tweets">
+    <li class="loading">Status updating...</li>
+  </ul>
+  <script type="text/javascript">
+    $.domReady(function(){
+      getTwitterFeed("TheGazler", 4, false);
+    });
+  </script>
+  <script src="/javascripts/twitter.js" type="text/javascript"> </script>
+  
+    <a href="http://twitter.com/TheGazler" class="twitter-follow-button" data-show-count="false">Follow @TheGazler</a>
+  
+</section>
+
+
+
+
+
+  
+</aside>
+
+
+    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  Copyright &copy; 2017 - Gary Rennie -
+  <span class="credit">Powered by <a href="http://octopress.org">Octopress</a></span>
+</p>
+
+</footer>
+  
+
+<script type="text/javascript">
+      var disqus_shortname = 'gazler';
+      
+        
+        // var disqus_developer = 1;
+        var disqus_identifier = 'http://Gazler.github.com/blog/2012/01/08/oauth2-provider-with-rails/';
+        var disqus_url = 'http://Gazler.github.com/blog/2012/01/08/oauth2-provider-with-rails/';
+        var disqus_script = 'embed.js';
+      
+    (function () {
+      var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+      dsq.src = 'http://' + disqus_shortname + '.disqus.com/' + disqus_script;
+      (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    }());
+</script>
+
+
+
+<div id="fb-root"></div>
+<script>(function(d, s, id) {
+  var js, fjs = d.getElementsByTagName(s)[0];
+  if (d.getElementById(id)) {return;}
+  js = d.createElement(s); js.id = id;
+  js.src = "//connect.facebook.net/en_US/all.js#appId=212934732101925&xfbml=1";
+  fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));</script>
+
+
+
+  <script type="text/javascript">
+    (function() {
+      var script = document.createElement('script'); script.type = 'text/javascript'; script.async = true;
+      script.src = 'https://apis.google.com/js/plusone.js';
+      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(script, s);
+    })();
+  </script>
+
+
+
+  <script type="text/javascript">
+    (function(){
+      var twitterWidgets = document.createElement('script');
+      twitterWidgets.type = 'text/javascript';
+      twitterWidgets.async = true;
+      twitterWidgets.src = 'http://platform.twitter.com/widgets.js';
+      document.getElementsByTagName('head')[0].appendChild(twitterWidgets);
+    })();
+  </script>
+
+
+
+
+
+</body>
+</html>

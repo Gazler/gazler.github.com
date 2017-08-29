@@ -1,1 +1,738 @@
-My Octopress Page is coming soon &hellip;
+
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>Gazler</title>
+  <meta name="author" content="Gary Rennie">
+
+  
+  <meta name="description" content="A common requirement for applications is to have a subdomain per customer that users belonging to that customer can visit. Example of this include: &hellip;">
+  
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+  <link rel="canonical" href="http://Gazler.github.com/">
+  <link href="/favicon.png" rel="icon">
+  <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+  <script src="/javascripts/modernizr-2.0.js"></script>
+  <script src="/javascripts/ender.js"></script>
+  <script src="/javascripts/octopress.js" type="text/javascript"></script>
+  <link href="/atom.xml" rel="alternate" title="Gazler" type="application/atom+xml">
+  <!--Fonts from Google"s Web font directory at http://google.com/webfonts -->
+<link href="http://fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+<link href="http://fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+
+  
+  <script type="text/javascript">
+    var _gaq = _gaq || [];
+    _gaq.push(['_setAccount', 'UA-28197078-2']);
+    _gaq.push(['_trackPageview']);
+
+    (function() {
+      var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+      ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+    })();
+  </script>
+
+
+</head>
+
+<body   >
+  <header role="banner"><hgroup>
+  <h1><a href="/">Gazler</a></h1>
+  
+    <h2>Brought to you by the founder of Githug!</h2>
+  
+</hgroup>
+
+</header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="/atom.xml" rel="subscribe-rss" title="subscribe via RSS">RSS</a></li>
+  
+</ul>
+  
+<form action="http://google.com/search" method="get">
+  <fieldset role="search">
+    <input type="hidden" name="q" value="site:Gazler.github.com" />
+    <input class="search" type="text" name="q" results="0" placeholder="Search"/>
+  </fieldset>
+</form>
+  
+<ul class="main-navigation">
+  <li><a href="/">Blog</a></li>
+  <li><a href="/blog/archives">Archives</a></li>
+  <li><a href="/talks">Talks</a></li>
+</ul>
+
+</nav>
+  <div id="main">
+    <div id="content">
+      <div class="blog-index">
+  
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2015/07/18/subdomains-with-phoenix/">Subdomains With Phoenix</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2015-07-18T16:22:00+01:00" pubdate data-updated="true">Jul 18<span>th</span>, 2015</time>
+        
+         | <a href="/blog/2015/07/18/subdomains-with-phoenix/#disqus_thread">Comments</a>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>A common requirement for applications is to have a subdomain per customer that users belonging to that customer can visit. Example of this include: <a href="https://slack.com">Slack</a> (https://elixir.slack.com, https://phoenix.slack.com, etc.) and <a href="https://readme.io">ReadMe</a>.</p>
+
+<p>This blog post will go through how to set up your Phoenix application so that it can be used in the same way.</p>
+
+<p>The source code for this repository is available at <a href="https://github.com/Gazler/phoenix-subdomain-demo">https://github.com/Gazler/phoenix-subdomain-demo</a> - there is a commit to represent each step in this post.</p>
+
+<h2>Getting Started</h2>
+
+<p>The first thing we will need is a new Phoenix application. Since it is focused on subdomains, I am going to call it subdomainer:</p>
+
+<pre><code>mix phoenix.new subdomainer
+</code></pre>
+
+<p>Once the app has been created and all the dependencies have been installed, start the app and visit it at <a href="http://localhost:4000">http://localhost:4000</a>.</p>
+
+<pre><code>mix phoenix.server
+</code></pre>
+
+<p>Next we need to ensure that it is accessible via a separate domain and subomains, so the following needs to be added to your <code>/etc/hosts</code> file:</p>
+
+<pre><code>127.0.0.1 subdomainer.dev foo.subdomainer.dev bar.subdomainer.dev
+</code></pre>
+
+<p>With these additions, you should also be able to access the application via: <a href="http://subdomainer.dev:4000">http://subdomainer.dev:4000</a>, <a href="http://foo.subdomainer.dev:4000">http://foo.subdomainer.dev:4000</a> and <a href="http://bar.subdomainer.dev:4000">http://bar.subdomainer.dev:4000</a></p>
+
+<p>Currently these all point to the same page, but we are going to modify it so that it displays information about the particular app that we are trying to visit.</p>
+
+<h2>Determining If A Subdomain Has Been Set</h2>
+
+</div>
+  
+  
+    <footer>
+      <a rel="full-article" href="/blog/2015/07/18/subdomains-with-phoenix/">Read on &rarr;</a>
+    </footer>
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2013/01/30/writing-your-first-pebble-watchface/">Writing Your First Pebble Watchface</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2013-01-30T19:26:00+00:00" pubdate data-updated="true">Jan 30<span>th</span>, 2013</time>
+        
+         | <a href="/blog/2013/01/30/writing-your-first-pebble-watchface/#disqus_thread">Comments</a>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p><strong>Please note that this post was written when I first got my hands on the SDK and some things may have changed since then.</strong></p>
+
+<p>So, you just got your hands on the pebble SDK and are looking to write yourself a watch face?  This post will introduce the creation of a watch face from the prototyping stage to packaging it up and running it on your device.  The watch face I will be using for this tutorial is the &#8220;Times Square&#8221; watch face - the first one I wrote the day I got my hands.  It is based off of the <a href="http://www.tokyoflash.com/en/watch_museum/pimp/pimpinainteasyipblack/">Pimp - Pimpin Ain&#8217;t Easy</a> which I used as my main watch for about 5 or 6 years until I lost it this year.  :(  The watchface took about 2 hours to create from installing the SDK to getting it on my wrist.</p>
+
+<h2>Repository</h2>
+
+<p>The repository is available at <a href="https://github.com/gazler/pebble-times-square">Times Square on Github</a></p>
+
+</div>
+  
+  
+    <footer>
+      <a rel="full-article" href="/blog/2013/01/30/writing-your-first-pebble-watchface/">Read on &rarr;</a>
+    </footer>
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2012/11/19/writing-a-demo-mode-in-backbone-by-overwriting-fetch-and-save/">Writing a Demo Mode in Backbone</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2012-11-19T18:59:00+00:00" pubdate data-updated="true">Nov 19<span>th</span>, 2012</time>
+        
+         | <a href="/blog/2012/11/19/writing-a-demo-mode-in-backbone-by-overwriting-fetch-and-save/#disqus_thread">Comments</a>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><h2>Background</h2>
+
+<p>When writing an application in Backbone, it is highly likely that you utilize <a href="http://backbonejs.org/#Collection-fetch">fetch()</a> to retrieve data from your web server and <a href="http://backbonejs.org/#Model-save">save()</a> to store data on it.  This is exactly what we did for <a href="http://upti.lt">Uptilt</a> our entry for the Rails Rumble 2012 (the making of you can read about on <a href="http://uptiltgame.tumblr.com/">the Uptilt Blog</a>).</p>
+
+<p>One of the key issues with Uptilt being a two player game is that it needs two people to play the game.  The solution to this is to use a demo (or practice) mode.  In the case of Uptilt, this involved implementing the game rules for card comparison client-side.  We also didn&#8217;t want any interaction with the server when the practice game is in progress as the game is not recorded in the database.</p>
+
+</div>
+  
+  
+    <footer>
+      <a rel="full-article" href="/blog/2012/11/19/writing-a-demo-mode-in-backbone-by-overwriting-fetch-and-save/">Read on &rarr;</a>
+    </footer>
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2012/04/24/how-travis-is-teaching-me-to-cook/">How Travis Is Teaching Me to Cook</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2012-04-24T12:39:00+01:00" pubdate data-updated="true">Apr 24<span>th</span>, 2012</time>
+        
+         | <a href="/blog/2012/04/24/how-travis-is-teaching-me-to-cook/#disqus_thread">Comments</a>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p><strong>Note: the contents of this post are heavily influenced by <a href="https://github.com/michaelklishin/sous-chef">Sous Chef</a>. </strong></p>
+
+<p>Over the past couple of weeks I have been working with a mobile developer to help integrate with one of my applications.  We plan on using OAuth (Which I have blogged about <a href="http://blog.gazler.com/blog/2012/01/08/oauth2-provider-with-rails/">here</a>) to authenticate the mobile application with the server.  The problem with this is that the rails application is still in development, and the mobile developer doesn&#8217;t have the code running.  I don&#8217;t want them to worry about dependencies, setting up the database or setting up git access via ssh keys, I just want him to be able to run the server.</p>
+
+<p>This is where <a href="http://vagrantup.com/">Vagrant</a> comes in.  Vagrant allows you to create Virtual Machines (using VirtualBox) programatically.  This means that I can create a VM of my application, hand it to anothe developer and let them get on with it.  Vagrant can utilize <a href="http://www.opscode.com/chef/">Chef</a> to build the machine.  Chef is an integration framework that makes it easy to deploy servers, which it does using cookbooks and recipes.  A recipe is for installing a particular piece of software and a cookbook is a collection of recipes.  There are plenty of cookbooks available online, I opted to use a set of cookbooks developed by <a href="http://travis-ci.org">Travis CI</a> that are available <a href="https://github.com/travis-ci/travis-cookbooks">on GitHub</a></p>
+
+<h2>Getting Started</h2>
+
+<p>The first thing to do is install Vagrant.  I chose to use the gem by doing:</p>
+
+<pre><code>gem install vagrant
+</code></pre>
+
+<p>However there are binaries available on their <a href="http://downloads.vagrantup.com/tags/v1.0.2">downloads</a> page.</p>
+
+</div>
+  
+  
+    <footer>
+      <a rel="full-article" href="/blog/2012/04/24/how-travis-is-teaching-me-to-cook/">Read on &rarr;</a>
+    </footer>
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2012/04/02/making-backbone-applications-realtime-with-pusher/">Making Backbone Applications Realtime With Pusher</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2012-04-02T09:40:00+01:00" pubdate data-updated="true">Apr 2<span>nd</span>, 2012</time>
+        
+         | <a href="/blog/2012/04/02/making-backbone-applications-realtime-with-pusher/#disqus_thread">Comments</a>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p>Over the past few months at Powershift, we have been experimenting with the development of Single-Page Applications.  We looked at a few javascript frameworks designed for the task and ultimately decided on <a href="http://documentcloud.github.com/backbone/">Backbone.js</a>  One of the things we really like about Backbone is that it has a data-driven approach.  That is, that you can listen on an item for a specific trigger, and call an action when that trigger is called.  The most common case for this in our applications is binding a view to the &#8220;change&#8221; event of a model so that when new data comes in, it is rendered on the page.</p>
+
+<figure class='code'> <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+</pre></td><td class='code'><pre><code class='js'><span class='line'><span class="c1">//The View</span>
+</span><span class='line'><span class="nx">Application</span><span class="p">.</span><span class="nx">Views</span><span class="p">.</span><span class="nx">PostView</span> <span class="o">=</span> <span class="nx">Backbone</span><span class="p">.</span><span class="nx">View</span><span class="p">.</span><span class="nx">extend</span><span class="p">({</span>
+</span><span class='line'>  <span class="nx">initialize</span><span class="o">:</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>    <span class="k">this</span><span class="p">.</span><span class="nx">model</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s2">&quot;change&quot;</span><span class="p">,</span> <span class="k">this</span><span class="p">.</span><span class="nx">render</span><span class="p">,</span> <span class="k">this</span><span class="p">);</span>
+</span><span class='line'>  <span class="p">},</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="nx">render</span><span class="o">:</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>    <span class="nx">$</span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">el</span><span class="p">).</span><span class="nx">html</span><span class="p">(</span><span class="nx">ich</span><span class="p">.</span><span class="nx">post_template</span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">model</span><span class="p">));</span> <span class="c1">//Render the element</span>
+</span><span class='line'>  <span class="p">}</span>
+</span><span class='line'><span class="p">});</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">//The Model</span>
+</span><span class='line'><span class="nx">Application</span><span class="p">.</span><span class="nx">Models</span><span class="p">.</span><span class="nx">Post</span> <span class="o">=</span> <span class="nx">Backbone</span><span class="p">.</span><span class="nx">Model</span><span class="p">.</span><span class="nx">extend</span><span class="p">({</span>
+</span><span class='line'>  <span class="nx">url</span><span class="o">:</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>    <span class="k">return</span> <span class="s2">&quot;/posts/&quot;</span><span class="o">+</span><span class="k">this</span><span class="p">.</span><span class="nx">id</span><span class="p">;</span>
+</span><span class='line'>  <span class="p">});</span>
+</span><span class='line'><span class="p">});</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">//initialize them</span>
+</span><span class='line'><span class="kd">var</span> <span class="nx">post</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Application</span><span class="p">.</span><span class="nx">Models</span><span class="p">.</span><span class="nx">Post</span><span class="p">({</span><span class="nx">id</span><span class="o">:</span> <span class="mi">1</span><span class="p">});</span>
+</span><span class='line'><span class="kd">var</span> <span class="nx">postView</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Applications</span><span class="p">.</span><span class="nx">Views</span><span class="p">.</span><span class="nx">PostView</span><span class="p">({</span><span class="nx">model</span><span class="o">:</span> <span class="nx">post</span><span class="p">});</span>
+</span><span class='line'><span class="nx">post</span><span class="p">.</span><span class="nx">fetch</span><span class="p">();</span>
+</span><span class='line'><span class="nx">post</span><span class="p">.</span><span class="nx">save</span><span class="p">({</span><span class="nx">title</span><span class="o">:</span> <span class="s2">&quot;New Title&quot;</span><span class="p">});</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+</div>
+  
+  
+    <footer>
+      <a rel="full-article" href="/blog/2012/04/02/making-backbone-applications-realtime-with-pusher/">Read on &rarr;</a>
+    </footer>
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2012/01/31/adding-validations-to-your-backbone-models/">Adding Validations to Your Backbone Models</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2012-01-31T21:42:00+00:00" pubdate data-updated="true">Jan 31<span>st</span>, 2012</time>
+        
+         | <a href="/blog/2012/01/31/adding-validations-to-your-backbone-models/#disqus_thread">Comments</a>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p><a href="http://documentcloud.github.com/backbone/">Backbone.js</a> is a JavaScript framework that gives your code a much needed structure.  This post will advise you on how to extend the framework by adding in validators.  I will assume you have atleast a basic knowledge of Backbone.</p>
+
+<h2>Source</h2>
+
+<p>The source code for this post is <a href="http://github.com/Gazler/backbone_validators">available on gitub.</a></p>
+
+<h2>The Goal</h2>
+
+<p>While Backbone does give your project structure, it does not give you the full feature set that you require to build a web application.  Many methods are deliberately stubbed out and you are encouraged to fill in the blanks to give you the desired functionality.  One such method is the <a href="http://documentcloud.github.com/backbone/#Model-validate">validate</a> method on a Backbone Model.</p>
+
+<p>The validate method is called every time <code>set</code> or <code>save</code> is called on a model.  The aim here is to override the validate method to use an object defined on the model and use this for validation.  We will also add an errors hash to the model which can be displayed to the user.</p>
+
+</div>
+  
+  
+    <footer>
+      <a rel="full-article" href="/blog/2012/01/31/adding-validations-to-your-backbone-models/">Read on &rarr;</a>
+    </footer>
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2012/01/11/oauth2-consumer-with-sinatra/">OAuth2 Consumer With Sinatra</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2012-01-11T20:40:00+00:00" pubdate data-updated="true">Jan 11<span>th</span>, 2012</time>
+        
+         | <a href="/blog/2012/01/11/oauth2-consumer-with-sinatra/#disqus_thread">Comments</a>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p><strong>This is part 2 of creating an OAuth based API with rails.  <a href="http://blog.gazler.com/blog/2012/01/08/oauth2-provider-with-rails/">Part 1 is available here</a>.</strong></p>
+
+<h2>Source</h2>
+
+<p>The source for both the provider and the consumer are available <a href="https://github.com/Gazler/Oauth2-Tutorial">here</a></p>
+
+<h2>Screencasts</h2>
+
+<p>I have created screencasts to go along with this tutorial.  This is my first attempt at screencasting, so please drop me a message if you find them useful or if there is anything you think can be improved.  Your feedback is appreciated.</p>
+
+<p><em>Download</em> <a href="http://screencasts.gazler.com/provider.mp4">mp4 format</a> <a href="http://screencasts.gazler.com/provider.ogv">ogv format</a> <a href="http://screencasts.gazler.com/provider.avi">avi format</a></p>
+
+<p>Change the following in <em>views/oauth/oauth2_authorize.html.erb</em></p>
+
+<figure class='code'> <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="o">&lt;</span><span class="nb">p</span><span class="o">&gt;</span><span class="no">Would</span> <span class="n">you</span> <span class="n">like</span> <span class="n">to</span> <span class="n">authorize</span> <span class="o">&lt;</span><span class="sx">%= link_to @token.client_application.name,@token.client_application.url %&gt; (&lt;%=</span> <span class="n">link_to</span> <span class="vi">@token</span><span class="o">.</span><span class="n">client_application</span><span class="o">.</span><span class="n">url</span><span class="p">,</span><span class="vi">@token</span><span class="o">.</span><span class="n">client_application</span><span class="o">.</span><span class="n">url</span> <span class="sx">%&gt;) to access your account?&lt;/p&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>To</p>
+
+<figure class='code'><figcaption><span>views/oauth/oauth2_authorize.html.erb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="o">&lt;</span><span class="nb">p</span><span class="o">&gt;</span><span class="no">Would</span> <span class="n">you</span> <span class="n">like</span> <span class="n">to</span> <span class="n">authorize</span> <span class="o">&lt;</span><span class="sx">%= link_to @client_application.name,@client_application.url %&gt; (&lt;%=</span> <span class="n">link_to</span> <span class="vi">@client_application</span><span class="o">.</span><span class="n">url</span><span class="p">,</span><span class="vi">@client_application</span><span class="o">.</span><span class="n">url</span> <span class="sx">%&gt;) to access your account?&lt;/p&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+</div>
+  
+  
+    <footer>
+      <a rel="full-article" href="/blog/2012/01/11/oauth2-consumer-with-sinatra/">Read on &rarr;</a>
+    </footer>
+  
+
+
+    </article>
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2012/01/08/oauth2-provider-with-rails/">OAuth2 Provider With Rails</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2012-01-08T21:16:00+00:00" pubdate data-updated="true">Jan 8<span>th</span>, 2012</time>
+        
+         | <a href="/blog/2012/01/08/oauth2-provider-with-rails/#disqus_thread">Comments</a>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><p><strong>This is part 1 of creating an OAuth based API with rails.  <a href="http://blog.gazler.com/blog/2012/01/11/oauth2-consumer-with-sinatra/">Part 2 is available here</a>.</strong></p>
+
+<p>Recently I had the need to create an Oauth2 authenticated API.  The following is an app in its most simple form to get you started with creating and testing an Oauth2 powered API, using oauth-plugin, devise and rspec.</p>
+
+<h2>Source</h2>
+
+<p>The source for both the provider and the consumer are available <a href="https://github.com/Gazler/Oauth2-Tutorial">here</a></p>
+
+<h2>Screencasts</h2>
+
+<p>I have created screencasts to go along with this tutorial.  This is my first attempt at screencasting, so please drop me a message if you find them useful or if there is anything you think can be improved.  Your feedback is appreciated.</p>
+
+<p><em>Download</em> <a href="http://screencasts.gazler.com/provider.mp4">mp4 format</a> <a href="http://screencasts.gazler.com/provider.ogv">ogv format</a> <a href="http://screencasts.gazler.com/provider.avi">avi format</a></p>
+
+<h2>Creating The Provider</h2>
+
+<p>Start by opening up your terminal.  For demonstration purposes I recommend creating a folder called oauth to put both the provider and consumer.</p>
+
+</div>
+  
+  
+    <footer>
+      <a rel="full-article" href="/blog/2012/01/08/oauth2-provider-with-rails/">Read on &rarr;</a>
+    </footer>
+  
+
+
+    </article>
+  
+  <div class="pagination">
+    
+    <a href="/blog/archives">Blog Archives</a>
+    
+  </div>
+</div>
+<aside class="sidebar">
+  
+    
+<section class="stackoverflow">
+  <h1>Stack Overflow</h1>
+  <a href="http://stackoverflow.com/users/219743/Gazler">
+  <img src="http://stackoverflow.com/users/flair/219743.png" width="208" height="58" alt="profile for Gazler at Stack Overflow, Q&amp;A for professional and enthusiast programmers" title="profile for Gazler at Stack Overflow, Q&amp;A for professional and enthusiast programmers">
+  </a>
+</section>
+
+
+
+<section>
+  <h1>Recent Posts</h1>
+  <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2015/07/18/subdomains-with-phoenix/">Subdomains With Phoenix</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2013/01/30/writing-your-first-pebble-watchface/">Writing Your First Pebble Watchface</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2012/11/19/writing-a-demo-mode-in-backbone-by-overwriting-fetch-and-save/">Writing a Demo Mode in Backbone</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2012/04/24/how-travis-is-teaching-me-to-cook/">How Travis Is Teaching Me To Cook</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2012/04/02/making-backbone-applications-realtime-with-pusher/">Making Backbone Applications Realtime With Pusher</a>
+      </li>
+    
+  </ul>
+</section>
+
+<section>
+  <h1>GitHub Repos</h1>
+  <ul id="gh_repos">
+    <li class="loading">Status updating&#8230;</li>
+  </ul>
+  
+  <a href="https://github.com/Gazler">@Gazler</a> on GitHub
+  
+  <script type="text/javascript">
+    $.domReady(function(){
+        if (!window.jXHR){
+            var jxhr = document.createElement('script');
+            jxhr.type = 'text/javascript';
+            jxhr.src = '/javascripts/libs/jXHR.js';
+            var s = document.getElementsByTagName('script')[0];
+            s.parentNode.insertBefore(jxhr, s);
+        }
+
+        github.showRepos({
+            user: 'Gazler',
+            count: 4,
+            skip_forks: true,
+            target: '#gh_repos'
+        });
+    });
+  </script>
+  <script src="/javascripts/github.js" type="text/javascript"> </script>
+</section>
+
+
+<section>
+  <h1>Latest Tweets</h1>
+  <ul id="tweets">
+    <li class="loading">Status updating&#8230;</li>
+  </ul>
+  <script type="text/javascript">
+    $.domReady(function(){
+      getTwitterFeed("TheGazler", 4, false);
+    });
+  </script>
+  <script src="/javascripts/twitter.js" type="text/javascript"> </script>
+  
+    <a href="http://twitter.com/TheGazler" class="twitter-follow-button" data-show-count="false">Follow @TheGazler</a>
+  
+</section>
+
+
+
+
+
+  
+</aside>
+
+    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  Copyright &copy; 2017 - Gary Rennie -
+  <span class="credit">Powered by <a href="http://octopress.org">Octopress</a></span>
+</p>
+
+</footer>
+  
+
+<script type="text/javascript">
+      var disqus_shortname = 'gazler';
+      
+        
+        var disqus_script = 'count.js';
+      
+    (function () {
+      var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+      dsq.src = 'http://' + disqus_shortname + '.disqus.com/' + disqus_script;
+      (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    }());
+</script>
+
+
+
+<div id="fb-root"></div>
+<script>(function(d, s, id) {
+  var js, fjs = d.getElementsByTagName(s)[0];
+  if (d.getElementById(id)) {return;}
+  js = d.createElement(s); js.id = id;
+  js.src = "//connect.facebook.net/en_US/all.js#appId=212934732101925&xfbml=1";
+  fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));</script>
+
+
+
+  <script type="text/javascript">
+    (function() {
+      var script = document.createElement('script'); script.type = 'text/javascript'; script.async = true;
+      script.src = 'https://apis.google.com/js/plusone.js';
+      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(script, s);
+    })();
+  </script>
+
+
+
+  <script type="text/javascript">
+    (function(){
+      var twitterWidgets = document.createElement('script');
+      twitterWidgets.type = 'text/javascript';
+      twitterWidgets.async = true;
+      twitterWidgets.src = 'http://platform.twitter.com/widgets.js';
+      document.getElementsByTagName('head')[0].appendChild(twitterWidgets);
+    })();
+  </script>
+
+
+
+
+
+</body>
+</html>

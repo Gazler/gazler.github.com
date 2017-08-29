@@ -1,0 +1,506 @@
+
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>OAuth2 Consumer With Sinatra - Gazler</title>
+  <meta name="author" content="Gary Rennie">
+
+  
+  <meta name="description" content="This is part 2 of creating an OAuth based API with rails. Part 1 is available here. Source The source for both the provider and the consumer are &hellip;">
+  
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+  <link rel="canonical" href="http://Gazler.github.com/blog/2012/01/11/oauth2-consumer-with-sinatra/">
+  <link href="/favicon.png" rel="icon">
+  <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+  <script src="/javascripts/modernizr-2.0.js"></script>
+  <script src="/javascripts/ender.js"></script>
+  <script src="/javascripts/octopress.js" type="text/javascript"></script>
+  <link href="/atom.xml" rel="alternate" title="Gazler" type="application/atom+xml">
+  <!--Fonts from Google"s Web font directory at http://google.com/webfonts -->
+<link href="http://fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+<link href="http://fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+
+  
+  <script type="text/javascript">
+    var _gaq = _gaq || [];
+    _gaq.push(['_setAccount', 'UA-28197078-2']);
+    _gaq.push(['_trackPageview']);
+
+    (function() {
+      var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+      ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+    })();
+  </script>
+
+
+</head>
+
+<body   >
+  <header role="banner"><hgroup>
+  <h1><a href="/">Gazler</a></h1>
+  
+    <h2>Brought to you by the founder of Githug!</h2>
+  
+</hgroup>
+
+</header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="/atom.xml" rel="subscribe-rss" title="subscribe via RSS">RSS</a></li>
+  
+</ul>
+  
+<form action="http://google.com/search" method="get">
+  <fieldset role="search">
+    <input type="hidden" name="q" value="site:Gazler.github.com" />
+    <input class="search" type="text" name="q" results="0" placeholder="Search"/>
+  </fieldset>
+</form>
+  
+<ul class="main-navigation">
+  <li><a href="/">Blog</a></li>
+  <li><a href="/blog/archives">Archives</a></li>
+  <li><a href="/talks">Talks</a></li>
+</ul>
+
+</nav>
+  <div id="main">
+    <div id="content">
+      <div>
+<article class="hentry" role="article">
+  
+  <header>
+    
+      <h1 class="entry-title">OAuth2 Consumer With Sinatra</h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2012-01-11T20:40:00+00:00" pubdate data-updated="true">Jan 11<span>th</span>, 2012</time>
+        
+         | <a href="#disqus_thread">Comments</a>
+        
+      </p>
+    
+  </header>
+
+
+<div class="entry-content"><p><strong>This is part 2 of creating an OAuth based API with rails.  <a href="http://blog.gazler.com/blog/2012/01/08/oauth2-provider-with-rails/">Part 1 is available here</a>.</strong></p>
+
+<h2>Source</h2>
+
+<p>The source for both the provider and the consumer are available <a href="https://github.com/Gazler/Oauth2-Tutorial">here</a></p>
+
+<h2>Screencasts</h2>
+
+<p>I have created screencasts to go along with this tutorial.  This is my first attempt at screencasting, so please drop me a message if you find them useful or if there is anything you think can be improved.  Your feedback is appreciated.</p>
+
+<p><em>Download</em> <a href="http://screencasts.gazler.com/provider.mp4">mp4 format</a> <a href="http://screencasts.gazler.com/provider.ogv">ogv format</a> <a href="http://screencasts.gazler.com/provider.avi">avi format</a></p>
+
+<p>Change the following in <em>views/oauth/oauth2_authorize.html.erb</em></p>
+
+<figure class='code'> <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="o">&lt;</span><span class="nb">p</span><span class="o">&gt;</span><span class="no">Would</span> <span class="n">you</span> <span class="n">like</span> <span class="n">to</span> <span class="n">authorize</span> <span class="o">&lt;</span><span class="sx">%= link_to @token.client_application.name,@token.client_application.url %&gt; (&lt;%=</span> <span class="n">link_to</span> <span class="vi">@token</span><span class="o">.</span><span class="n">client_application</span><span class="o">.</span><span class="n">url</span><span class="p">,</span><span class="vi">@token</span><span class="o">.</span><span class="n">client_application</span><span class="o">.</span><span class="n">url</span> <span class="sx">%&gt;) to access your account?&lt;/p&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>To</p>
+
+<figure class='code'><figcaption><span>views/oauth/oauth2_authorize.html.erb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="o">&lt;</span><span class="nb">p</span><span class="o">&gt;</span><span class="no">Would</span> <span class="n">you</span> <span class="n">like</span> <span class="n">to</span> <span class="n">authorize</span> <span class="o">&lt;</span><span class="sx">%= link_to @client_application.name,@client_application.url %&gt; (&lt;%=</span> <span class="n">link_to</span> <span class="vi">@client_application</span><span class="o">.</span><span class="n">url</span><span class="p">,</span><span class="vi">@client_application</span><span class="o">.</span><span class="n">url</span> <span class="sx">%&gt;) to access your account?&lt;/p&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+<!-- more -->
+
+
+<p>You should now start a rails server and navigate to http://localhost:3000/users/sign_up, after signing up go to http://localhost:3000/oauth_clients and create a client.  Please not that your client callback_url must match that of the one passed through in your app.  If you are using the demo sinatra app, it should be <strong>http://localhost:4567/auth/test</strong></p>
+
+<p>There are a couple things you should change in <em>views/oauth_clients/index.html.erb</em> Change the @tokens block to:</p>
+
+<figure class='code'><figcaption><span>views/oauth_clients/index.html.erb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'> <span class="o">&lt;</span><span class="sx">% @tokens.each </span><span class="k">do</span> <span class="o">|</span><span class="n">token</span><span class="o">|</span><span class="sx">%&gt;</span>
+</span><span class='line'><span class="sx">  &lt;tr&gt;</span>
+</span><span class='line'>    <span class="o">&lt;</span><span class="n">td</span><span class="o">&gt;&lt;</span><span class="sx">%= link_to token.client_application.name, token.client_application.url %&gt;&lt;/td&gt;</span>
+</span><span class='line'><span class="sx">    &lt;td&gt;&lt;%=</span> <span class="n">token</span><span class="o">.</span><span class="n">authorized_at</span> <span class="sx">%&gt;&lt;/td&gt;</span>
+</span><span class='line'>    <span class="o">&lt;</span><span class="n">td</span><span class="o">&gt;&amp;</span><span class="n">nbsp</span><span class="p">;</span><span class="o">&lt;</span><span class="sr">/td&gt;</span>
+</span><span class='line'><span class="sr">  &lt;/</span><span class="n">tr</span><span class="o">&gt;</span>
+</span><span class='line'><span class="o">&lt;</span><span class="sx">% end </span><span class="o">%&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>And change the @client_applications block to:</p>
+
+<figure class='code'><figcaption><span>views/oauth_clients/index.html.erb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="o">&lt;</span><span class="sx">% @client_applications.each </span><span class="k">do</span> <span class="o">|</span><span class="n">client</span><span class="o">|</span><span class="sx">%&gt;</span>
+</span><span class='line'><span class="sx">  &lt;div&gt;</span>
+</span><span class='line'>    <span class="o">&lt;</span><span class="sx">%= link_to client.name, oauth_client_path(client) %&gt;-</span>
+</span><span class='line'><span class="sx">      &lt;%=</span> <span class="n">link_to</span> <span class="s1">&#39;Edit&#39;</span><span class="p">,</span> <span class="n">edit_oauth_client_path</span><span class="p">(</span><span class="n">client</span><span class="p">)</span> <span class="sx">%&gt;</span>
+</span><span class='line'><span class="sx">      &lt;%= link_to &#39;Delete&#39;, oauth_client_path(client), :confirm =&gt;</span> <span class="s2">&quot;Are you sure?&quot;</span><span class="p">,</span> <span class="ss">:method</span> <span class="o">=&gt;</span> <span class="ss">:delete</span> <span class="sx">%&gt;</span>
+</span><span class='line'><span class="sx">  &lt;/div&gt;</span>
+</span><span class='line'><span class="o">&lt;</span><span class="sx">% end </span><span class="o">%&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>You should now create a consumer directory outside of the rails root.</p>
+
+<pre><code>cd ..
+mkdir consumer &amp;&amp; cd consumer
+</code></pre>
+
+<p>You will then need to install sinatra and the oauth2 gem <strong>Please note this requires a version of oauth higher than 0.5 </strong></p>
+
+<pre><code>gem install sinatra
+gem install oauth2 
+</code></pre>
+
+<p>Copy the following code, replacing the API keys from those of the client:</p>
+
+<figure class='code'><figcaption><span>app.rb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="nb">require</span> <span class="s1">&#39;sinatra&#39;</span>
+</span><span class='line'><span class="nb">require</span> <span class="s1">&#39;oauth2&#39;</span>
+</span><span class='line'><span class="nb">require</span> <span class="s1">&#39;json&#39;</span>
+</span><span class='line'><span class="n">enable</span> <span class="ss">:sessions</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">def</span> <span class="nf">client</span>
+</span><span class='line'>  <span class="no">OAuth2</span><span class="o">::</span><span class="no">Client</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="n">consumer_key</span><span class="p">,</span> <span class="n">consumer_secret</span><span class="p">,</span> <span class="ss">:site</span> <span class="o">=&gt;</span> <span class="s2">&quot;http://localhost:3000&quot;</span><span class="p">)</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">get</span> <span class="s2">&quot;/auth/test&quot;</span> <span class="k">do</span>
+</span><span class='line'>  <span class="n">redirect</span> <span class="n">client</span><span class="o">.</span><span class="n">auth_code</span><span class="o">.</span><span class="n">authorize_url</span><span class="p">(</span><span class="ss">:redirect_uri</span> <span class="o">=&gt;</span> <span class="n">redirect_uri</span><span class="p">)</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">get</span> <span class="s1">&#39;/auth/test/callback&#39;</span> <span class="k">do</span>
+</span><span class='line'>  <span class="n">access_token</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">auth_code</span><span class="o">.</span><span class="n">get_token</span><span class="p">(</span><span class="n">params</span><span class="o">[</span><span class="ss">:code</span><span class="o">]</span><span class="p">,</span> <span class="ss">:redirect_uri</span> <span class="o">=&gt;</span> <span class="n">redirect_uri</span><span class="p">)</span>
+</span><span class='line'>  <span class="n">session</span><span class="o">[</span><span class="ss">:access_token</span><span class="o">]</span> <span class="o">=</span> <span class="n">access_token</span><span class="o">.</span><span class="n">token</span>
+</span><span class='line'>  <span class="vi">@message</span> <span class="o">=</span> <span class="s2">&quot;Successfully authenticated with the server&quot;</span>
+</span><span class='line'>  <span class="n">erb</span> <span class="ss">:success</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">get</span> <span class="s1">&#39;/yet_another&#39;</span> <span class="k">do</span>
+</span><span class='line'>  <span class="vi">@message</span> <span class="o">=</span> <span class="n">get_response</span><span class="p">(</span><span class="s1">&#39;data.json&#39;</span><span class="p">)</span>
+</span><span class='line'>  <span class="n">erb</span> <span class="ss">:success</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'><span class="n">get</span> <span class="s1">&#39;/another_page&#39;</span> <span class="k">do</span>
+</span><span class='line'>  <span class="vi">@message</span> <span class="o">=</span> <span class="n">get_response</span><span class="p">(</span><span class="s1">&#39;data.json&#39;</span><span class="p">)</span>
+</span><span class='line'>  <span class="n">erb</span> <span class="ss">:another</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">def</span> <span class="nf">get_response</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+</span><span class='line'>  <span class="n">access_token</span> <span class="o">=</span> <span class="no">OAuth2</span><span class="o">::</span><span class="no">AccessToken</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">session</span><span class="o">[</span><span class="ss">:access_token</span><span class="o">]</span><span class="p">)</span>
+</span><span class='line'>  <span class="no">JSON</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">access_token</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/api/v1/</span><span class="si">#{</span><span class="n">url</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">body</span><span class="p">)</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="k">def</span> <span class="nf">redirect_uri</span>
+</span><span class='line'>  <span class="n">uri</span> <span class="o">=</span> <span class="no">URI</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">url</span><span class="p">)</span>
+</span><span class='line'>  <span class="n">uri</span><span class="o">.</span><span class="n">path</span> <span class="o">=</span> <span class="s1">&#39;/auth/test/callback&#39;</span>
+</span><span class='line'>  <span class="n">uri</span><span class="o">.</span><span class="n">query</span> <span class="o">=</span> <span class="kp">nil</span>
+</span><span class='line'>  <span class="n">uri</span><span class="o">.</span><span class="n">to_s</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>You can grab the required views from <em>consumer/views</em></p>
+</div>
+
+
+  <footer>
+    <p class="meta">
+      
+  
+
+<span class="byline author vcard">Posted by <span class="fn">Gary Rennie</span></span>
+
+      
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2012-01-11T20:40:00+00:00" pubdate data-updated="true">Jan 11<span>th</span>, 2012</time>
+      
+
+<span class="categories">
+  
+    <a class='category' href='/blog/categories/oauth/'>oauth</a>, <a class='category' href='/blog/categories/rails/'>rails</a>, <a class='category' href='/blog/categories/ruby/'>ruby</a>, <a class='category' href='/blog/categories/sinatra/'>sinatra</a>
+  
+</span>
+
+
+    </p>
+    
+      <div class="sharing">
+  
+  <a href="http://twitter.com/share" class="twitter-share-button" data-url="http://Gazler.github.com/blog/2012/01/11/oauth2-consumer-with-sinatra/" data-via="TheGazler" data-counturl="http://Gazler.github.com/blog/2012/01/11/oauth2-consumer-with-sinatra/" >Tweet</a>
+  
+  
+  <div class="g-plusone" data-size="medium"></div>
+  
+  
+    <div class="fb-like" data-send="true" data-width="450" data-show-faces="false"></div>
+  
+</div>
+
+    
+    <p class="meta">
+      
+        <a class="basic-alignment left" href="/blog/2012/01/08/oauth2-provider-with-rails/" title="Previous Post: OAuth2 Provider With Rails">&laquo; OAuth2 Provider With Rails</a>
+      
+      
+        <a class="basic-alignment right" href="/blog/2012/01/31/adding-validations-to-your-backbone-models/" title="Next Post: Adding Validations To Your Backbone Models">Adding Validations To Your Backbone Models &raquo;</a>
+      
+    </p>
+  </footer>
+</article>
+
+  <section>
+    <h1>Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+</div>
+  </section>
+
+</div>
+
+<aside class="sidebar">
+  
+    
+<section class="stackoverflow">
+  <h1>Stack Overflow</h1>
+  <a href="http://stackoverflow.com/users/219743/Gazler">
+  <img src="http://stackoverflow.com/users/flair/219743.png" width="208" height="58" alt="profile for Gazler at Stack Overflow, Q&amp;A for professional and enthusiast programmers" title="profile for Gazler at Stack Overflow, Q&amp;A for professional and enthusiast programmers">
+  </a>
+</section>
+
+
+
+<section>
+  <h1>Recent Posts</h1>
+  <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2015/07/18/subdomains-with-phoenix/">Subdomains With Phoenix</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2013/01/30/writing-your-first-pebble-watchface/">Writing Your First Pebble Watchface</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2012/11/19/writing-a-demo-mode-in-backbone-by-overwriting-fetch-and-save/">Writing a Demo Mode in Backbone</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2012/04/24/how-travis-is-teaching-me-to-cook/">How Travis Is Teaching Me To Cook</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2012/04/02/making-backbone-applications-realtime-with-pusher/">Making Backbone Applications Realtime With Pusher</a>
+      </li>
+    
+  </ul>
+</section>
+
+<section>
+  <h1>GitHub Repos</h1>
+  <ul id="gh_repos">
+    <li class="loading">Status updating...</li>
+  </ul>
+  
+  <a href="https://github.com/Gazler">@Gazler</a> on GitHub
+  
+  <script type="text/javascript">
+    $.domReady(function(){
+        if (!window.jXHR){
+            var jxhr = document.createElement('script');
+            jxhr.type = 'text/javascript';
+            jxhr.src = '/javascripts/libs/jXHR.js';
+            var s = document.getElementsByTagName('script')[0];
+            s.parentNode.insertBefore(jxhr, s);
+        }
+
+        github.showRepos({
+            user: 'Gazler',
+            count: 4,
+            skip_forks: true,
+            target: '#gh_repos'
+        });
+    });
+  </script>
+  <script src="/javascripts/github.js" type="text/javascript"> </script>
+</section>
+
+
+<section>
+  <h1>Latest Tweets</h1>
+  <ul id="tweets">
+    <li class="loading">Status updating...</li>
+  </ul>
+  <script type="text/javascript">
+    $.domReady(function(){
+      getTwitterFeed("TheGazler", 4, false);
+    });
+  </script>
+  <script src="/javascripts/twitter.js" type="text/javascript"> </script>
+  
+    <a href="http://twitter.com/TheGazler" class="twitter-follow-button" data-show-count="false">Follow @TheGazler</a>
+  
+</section>
+
+
+
+
+
+  
+</aside>
+
+
+    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  Copyright &copy; 2017 - Gary Rennie -
+  <span class="credit">Powered by <a href="http://octopress.org">Octopress</a></span>
+</p>
+
+</footer>
+  
+
+<script type="text/javascript">
+      var disqus_shortname = 'gazler';
+      
+        
+        // var disqus_developer = 1;
+        var disqus_identifier = 'http://Gazler.github.com/blog/2012/01/11/oauth2-consumer-with-sinatra/';
+        var disqus_url = 'http://Gazler.github.com/blog/2012/01/11/oauth2-consumer-with-sinatra/';
+        var disqus_script = 'embed.js';
+      
+    (function () {
+      var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+      dsq.src = 'http://' + disqus_shortname + '.disqus.com/' + disqus_script;
+      (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    }());
+</script>
+
+
+
+<div id="fb-root"></div>
+<script>(function(d, s, id) {
+  var js, fjs = d.getElementsByTagName(s)[0];
+  if (d.getElementById(id)) {return;}
+  js = d.createElement(s); js.id = id;
+  js.src = "//connect.facebook.net/en_US/all.js#appId=212934732101925&xfbml=1";
+  fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));</script>
+
+
+
+  <script type="text/javascript">
+    (function() {
+      var script = document.createElement('script'); script.type = 'text/javascript'; script.async = true;
+      script.src = 'https://apis.google.com/js/plusone.js';
+      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(script, s);
+    })();
+  </script>
+
+
+
+  <script type="text/javascript">
+    (function(){
+      var twitterWidgets = document.createElement('script');
+      twitterWidgets.type = 'text/javascript';
+      twitterWidgets.async = true;
+      twitterWidgets.src = 'http://platform.twitter.com/widgets.js';
+      document.getElementsByTagName('head')[0].appendChild(twitterWidgets);
+    })();
+  </script>
+
+
+
+
+
+</body>
+</html>

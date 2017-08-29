@@ -1,0 +1,310 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: chef | Gazler]]></title>
+  <link href="http://Gazler.github.com/blog/categories/chef/atom.xml" rel="self"/>
+  <link href="http://Gazler.github.com/"/>
+  <updated>2017-08-29T17:44:23+01:00</updated>
+  <id>http://Gazler.github.com/</id>
+  <author>
+    <name><![CDATA[Gary Rennie]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[How Travis Is Teaching Me To Cook]]></title>
+    <link href="http://Gazler.github.com/blog/2012/04/24/how-travis-is-teaching-me-to-cook/"/>
+    <updated>2012-04-24T12:39:00+01:00</updated>
+    <id>http://Gazler.github.com/blog/2012/04/24/how-travis-is-teaching-me-to-cook</id>
+    <content type="html"><![CDATA[<p><strong>Note: the contents of this post are heavily influenced by <a href="https://github.com/michaelklishin/sous-chef">Sous Chef</a>. </strong></p>
+
+<p>Over the past couple of weeks I have been working with a mobile developer to help integrate with one of my applications.  We plan on using OAuth (Which I have blogged about <a href="http://blog.gazler.com/blog/2012/01/08/oauth2-provider-with-rails/">here</a>) to authenticate the mobile application with the server.  The problem with this is that the rails application is still in development, and the mobile developer doesn't have the code running.  I don't want them to worry about dependencies, setting up the database or setting up git access via ssh keys, I just want him to be able to run the server.</p>
+
+<p>This is where <a href="http://vagrantup.com/">Vagrant</a> comes in.  Vagrant allows you to create Virtual Machines (using VirtualBox) programatically.  This means that I can create a VM of my application, hand it to anothe developer and let them get on with it.  Vagrant can utilize <a href="http://www.opscode.com/chef/">Chef</a> to build the machine.  Chef is an integration framework that makes it easy to deploy servers, which it does using cookbooks and recipes.  A recipe is for installing a particular piece of software and a cookbook is a collection of recipes.  There are plenty of cookbooks available online, I opted to use a set of cookbooks developed by <a href="http://travis-ci.org">Travis CI</a> that are available <a href="https://github.com/travis-ci/travis-cookbooks">on GitHub</a></p>
+
+<h2>Getting Started</h2>
+
+<p>The first thing to do is install Vagrant.  I chose to use the gem by doing:</p>
+
+<pre><code>gem install vagrant
+</code></pre>
+
+<p>However there are binaries available on their <a href="http://downloads.vagrantup.com/tags/v1.0.2">downloads</a> page.</p>
+
+<!-- more -->
+
+
+<p>The next step is to create a folder for vagrant to sit in and intialize vagrant.</p>
+
+<pre><code>mkdir my_application &amp;&amp; cd my_application
+vagrant init
+</code></pre>
+
+<p>This will create a Vagrantfile in your repository that should look like this:</p>
+
+<p><div class='bogus-wrapper'><notextile><figure class='code'><figcaption><span>Vagrantfile  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="o">&lt;</span><span class="sr">/p&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="sr">&lt;h1&gt;-&lt;em&gt;- mode: ruby -&lt;/em</span><span class="o">&gt;-&lt;</span><span class="sr">/h1&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="sr">&lt;h1&gt;vi: set ft=ruby :&lt;/</span><span class="n">h1</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="nb">p</span><span class="o">&gt;</span><span class="no">Vagrant</span><span class="o">::</span><span class="no">Config</span><span class="o">.</span><span class="n">run</span> <span class="k">do</span> <span class="o">|</span><span class="n">config</span><span class="o">|</span>
+</span><span class='line'>  <span class="n">config</span><span class="o">.</span><span class="n">vm</span><span class="o">.</span><span class="n">box</span> <span class="o">=</span> <span class="s2">&quot;base&quot;</span><span class="o">&lt;</span><span class="sr">/p&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="sr">&lt;p&gt;  #lots of comments!</span>
+</span><span class='line'><span class="sr">end</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div></p>
+
+<p>The first two lines tell your editor what syntax highlighting to use, which is ruby.  We're going to make some changes inside the config block, so remove the <code>config.vm.box = "base"</code> line.  The next step is to specify the "box" that is, the machine we want to boot from.  In this case I am using Ubuntu 11.04 provided by Travis CI.</p>
+
+<p><div class='bogus-wrapper'><notextile><figure class='code'><figcaption><span>Vagrantfile  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="no">Vagrant</span><span class="o">::</span><span class="no">Config</span><span class="o">.</span><span class="n">run</span> <span class="k">do</span> <span class="o">|</span><span class="n">config</span><span class="o">|&lt;</span><span class="sr">/p&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="sr">&lt;p&gt;   config.vm.box     = &quot;natty32_base&quot;</span>
+</span><span class='line'><span class="sr">   config.vm.box_url = &quot;http:/</span><span class="o">/</span><span class="n">files</span><span class="o">.</span><span class="n">travis</span><span class="o">-</span><span class="n">ci</span><span class="o">.</span><span class="n">org</span><span class="o">/</span><span class="n">boxes</span><span class="o">/</span><span class="n">bases</span><span class="o">/</span><span class="n">natty32</span><span class="o">.</span><span class="n">box</span><span class="s2">&quot;&lt;/p&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="s2">&lt;p&gt;end</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div></p>
+
+<p>This is all you need to start up.  If you run the command:</p>
+
+<pre><code>vagrant up
+</code></pre>
+
+<p>Then the virtual box will be started, and you can shell into it using <code>vagrant ssh</code>.</p>
+
+<h2>Cooking With Chef</h2>
+
+<p>Now that the VM is working, you could ssh in and install all the dependencies, but that isn't really a good way of doing it.  You would have to provide build instructions to other people using the box.  Instead, Chef can be used to install software on the VM.</p>
+
+<p>First of all, clone the cookbooks from Travis CI (or somewhere else if you use other cookbooks.)</p>
+
+<pre><code>git clone git://github.com/travis-ci/travis-cookbooks.git cookbooks
+</code></pre>
+
+<p>With the cookbooks, you can now modify your Vagrantfile to install software.</p>
+
+<p><div class='bogus-wrapper'><notextile><figure class='code'><figcaption><span>Vagrantfile  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="no">Vagrant</span><span class="o">::</span><span class="no">Config</span><span class="o">.</span><span class="n">run</span> <span class="k">do</span> <span class="o">|</span><span class="n">config</span><span class="o">|&lt;</span><span class="sr">/p&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="sr">&lt;pre&gt;&lt;code&gt;config.vm.box     = &quot;natty32_base&quot;</span>
+</span><span class='line'><span class="sr">config.vm.box_url = &quot;http:/</span><span class="o">/</span><span class="n">files</span><span class="o">.</span><span class="n">travis</span><span class="o">-</span><span class="n">ci</span><span class="o">.</span><span class="n">org</span><span class="o">/</span><span class="n">boxes</span><span class="o">/</span><span class="n">bases</span><span class="o">/</span><span class="n">natty32</span><span class="o">.</span><span class="n">box</span><span class="s2">&quot;</span>
+</span><span class='line'>
+</span><span class='line'><span class="s2">config.vm.provision :chef_solo do |chef|</span>
+</span><span class='line'><span class="s2">  chef.cookbooks_path = [&quot;</span><span class="n">cookbooks</span><span class="o">/</span><span class="n">ci_environment</span><span class="s2">&quot;]</span>
+</span><span class='line'><span class="s2">  chef.log_level = :debug</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="s2">  #Install application dependencies - apt and build-essential are a must</span>
+</span><span class='line'><span class="s2">  chef.add_recipe &quot;</span><span class="n">apt</span><span class="s2">&quot;</span>
+</span><span class='line'><span class="s2">  chef.add_recipe &quot;</span><span class="n">build</span><span class="o">-</span><span class="n">essential</span><span class="s2">&quot;</span>
+</span><span class='line'><span class="s2">  chef.add_recipe &quot;</span><span class="n">git</span><span class="s2">&quot;</span>
+</span><span class='line'><span class="s2">  chef.add_recipe &quot;</span><span class="n">rvm</span><span class="s2">&quot;</span>
+</span><span class='line'><span class="s2">  chef.add_recipe &quot;</span><span class="n">sqlite</span><span class="s2">&quot;</span>
+</span><span class='line'><span class="s2">  chef.json.merge!({</span>
+</span><span class='line'><span class="s2">                      :apt =&amp;gt; {</span>
+</span><span class='line'><span class="s2">                        :mirror =&amp;gt; :ru</span>
+</span><span class='line'><span class="s2">                      },</span>
+</span><span class='line'><span class="s2">                      :rvm =&amp;gt; {</span>
+</span><span class='line'><span class="s2">                        :rubies  =&amp;gt; [{ :name =&amp;gt; &quot;</span><span class="mi">1</span><span class="o">.</span><span class="mi">9</span><span class="o">.</span><span class="mi">2</span><span class="s2">&quot; }]</span>
+</span><span class='line'><span class="s2">                      },</span>
+</span><span class='line'><span class="s2">                      :travis_build_environment =&amp;gt; {</span>
+</span><span class='line'><span class="s2">                        :user =&amp;gt; &quot;</span><span class="n">vagrant</span><span class="s2">&quot;,</span>
+</span><span class='line'><span class="s2">                        :group =&amp;gt; &quot;</span><span class="n">vagrant</span><span class="s2">&quot;</span>
+</span><span class='line'><span class="s2">                      }</span>
+</span><span class='line'><span class="s2">                   })</span>
+</span><span class='line'><span class="s2">end</span>
+</span><span class='line'><span class="s2">&lt;/code&gt;&lt;/pre&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="s2">&lt;p&gt;end</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div></p>
+
+<p>You can call <code>chef.add_recipe</code> to install all of your application dependencies, you can check the cookbooks/ci_environment folder to see which recipes are available.  The last line in the config (<code>chef.json.merge</code>) contains the configuration used by the recipes (<a href="http://wiki.opscode.com/display/chef/Attributes">read more here</a>.)</p>
+
+<p>If you run <code>vagrant provision</code> then it will install all your dependencies (including ruby 1.9.2 as specified in the json block.)</p>
+
+<p>When this finishes, you can ssh into your box by calling <code>vagrant ssh</code> and check that ruby has been installed by typing <code>ruby -v</code> and it should return 1.9.2</p>
+
+<h2>Running your application</h2>
+
+<p>It is now time to add the application to the box.  To do this, a new recipe must be created.  I would recommend creating a new folder for your cookbook.  I called mine "application_cookbook"</p>
+
+<pre><code>mkdir -p application_cookbook/main/recipes
+</code></pre>
+
+<p>"main" is the name of your recipe and "recipes" is where the recipes live.  Create a new file in recipes called "default.rb" and inside the file, put the following:</p>
+
+<p><div class='bogus-wrapper'><notextile><figure class='code'><figcaption><span>default.rb </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+</pre></td><td class='code'><pre><code class='rb'><span class='line'><span class="n">application_dir</span> <span class="o">=</span> <span class="s2">&quot;/home/vagrant/application&quot;</span><span class="o">&lt;</span><span class="sr">/p&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="sr">&lt;h1&gt;install bundler&lt;/</span><span class="n">h1</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="nb">p</span><span class="o">&gt;</span><span class="n">gem_package</span> <span class="s2">&quot;bundler&quot;</span><span class="o">&lt;</span><span class="sr">/p&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="sr">&lt;h1&gt;update rubygems&lt;/</span><span class="n">h1</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="nb">p</span><span class="o">&gt;</span><span class="n">execute</span> <span class="s2">&quot;gem&quot;</span> <span class="k">do</span>
+</span><span class='line'>  <span class="n">command</span> <span class="s2">&quot;gem update --system&quot;</span>
+</span><span class='line'>  <span class="n">cwd</span> <span class="n">application_dir</span>
+</span><span class='line'><span class="k">end</span><span class="o">&lt;</span><span class="sr">/p&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="sr">&lt;p&gt;execute &quot;bundle&quot; do</span>
+</span><span class='line'><span class="sr">  command &quot;bundle&quot;</span>
+</span><span class='line'><span class="sr">  cwd application_dir</span>
+</span><span class='line'><span class="sr">end&lt;/</span><span class="nb">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">h1</span><span class="o">&gt;</span><span class="n">clear</span> <span class="ow">and</span> <span class="n">migrate</span> <span class="n">the</span> <span class="n">database</span><span class="o">&lt;</span><span class="sr">/h1&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="sr">&lt;p&gt;execute &quot;bundle&quot; do</span>
+</span><span class='line'><span class="sr">  command &quot;bundle exec rake db:drop db:migrate db:seed&quot;</span>
+</span><span class='line'><span class="sr">  cwd application_dir</span>
+</span><span class='line'><span class="sr">end&lt;/</span><span class="nb">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">h1</span><span class="o">&gt;</span><span class="n">start</span> <span class="n">the</span> <span class="n">server</span> <span class="ow">and</span> <span class="n">daemonize</span> <span class="n">it</span><span class="o">&lt;</span><span class="sr">/h1&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="sr">&lt;p&gt;execute &quot;rails&quot; do</span>
+</span><span class='line'><span class="sr">  command &quot;rails s -d&quot;</span>
+</span><span class='line'><span class="sr">  cwd application_dir</span>
+</span><span class='line'><span class="sr">end</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div></p>
+
+<p>This will install all the required gems and set up the database.  You may notice that we reference /home/vagrant/applicaiton, this is a folder we haven't created yet.  To do so we need some additional changes to the Vagrantfile.</p>
+
+<p><div class='bogus-wrapper'><notextile><figure class='code'><figcaption><span>Vagrantfile  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="no">Vagrant</span><span class="o">::</span><span class="no">Config</span><span class="o">.</span><span class="n">run</span> <span class="k">do</span> <span class="o">|</span><span class="n">config</span><span class="o">|</span>
+</span><span class='line'>  <span class="n">config</span><span class="o">.</span><span class="n">vm</span><span class="o">.</span><span class="n">provision</span> <span class="ss">:chef_solo</span> <span class="k">do</span> <span class="o">|</span><span class="n">chef</span><span class="o">|&lt;</span><span class="sr">/p&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="sr">&lt;pre&gt;&lt;code&gt;#Change the cookbooks_path to inclide your new recipes</span>
+</span><span class='line'><span class="sr">chef.cookbooks_path = [&quot;cookbooks/</span><span class="n">ci_environment</span><span class="s2">&quot;, &quot;</span><span class="n">application_cookbook</span><span class="s2">&quot;]</span>
+</span><span class='line'>
+</span><span class='line'><span class="s2">#keep all the old code here</span>
+</span><span class='line'>
+</span><span class='line'><span class="s2">#Add your new recipe</span>
+</span><span class='line'><span class="s2">chef.add_recipe &quot;</span><span class="n">main</span><span class="s2">&quot;</span>
+</span><span class='line'><span class="s2">&lt;/code&gt;&lt;/pre&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="s2">&lt;p&gt;  end&lt;/p&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="s2">&lt;p&gt;  #Create a reference to your application folder</span>
+</span><span class='line'><span class="s2">  config.vm.share_folder &quot;</span><span class="n">application</span><span class="s2">&quot;, &quot;</span><span class="n">application</span><span class="s2">&quot;, &quot;</span><span class="n">application</span><span class="s2">&quot;, :create =&gt; true</span>
+</span><span class='line'><span class="s2">  #forward requests for port 3000 to the virtual box</span>
+</span><span class='line'><span class="s2">  config.vm.forward_port 3000, 3000</span>
+</span><span class='line'><span class="s2">end</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div></p>
+
+<p>The final step is to move your application folder into your current directory <code>cp -r /path/to/application .</code></p>
+
+<p>You will need to reload vagrant as there are port and share folder changes.</p>
+
+<pre><code>vagrant reload
+</code></pre>
+
+<p>When everything finishes, when you navigate to <a href="http://localhost:3000">http://localhost:3000</a> then you should see your application!</p>
+
+<p>After I followed the above steps, I could zip up the folder, give it to the other developer and he was set.  He could extract the files, run <code>vagrant up</code> and access the server.</p>
+]]></content>
+  </entry>
+  
+</feed>

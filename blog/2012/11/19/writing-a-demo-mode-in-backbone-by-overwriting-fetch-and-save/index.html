@@ -1,0 +1,514 @@
+
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>Writing a Demo Mode in Backbone - Gazler</title>
+  <meta name="author" content="Gary Rennie">
+
+  
+  <meta name="description" content="Background When writing an application in Backbone, it is highly likely that you utilize fetch() to retrieve data from your web server and save() to &hellip;">
+  
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+  <link rel="canonical" href="http://Gazler.github.com/blog/2012/11/19/writing-a-demo-mode-in-backbone-by-overwriting-fetch-and-save/">
+  <link href="/favicon.png" rel="icon">
+  <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+  <script src="/javascripts/modernizr-2.0.js"></script>
+  <script src="/javascripts/ender.js"></script>
+  <script src="/javascripts/octopress.js" type="text/javascript"></script>
+  <link href="/atom.xml" rel="alternate" title="Gazler" type="application/atom+xml">
+  <!--Fonts from Google"s Web font directory at http://google.com/webfonts -->
+<link href="http://fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+<link href="http://fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+
+  
+  <script type="text/javascript">
+    var _gaq = _gaq || [];
+    _gaq.push(['_setAccount', 'UA-28197078-2']);
+    _gaq.push(['_trackPageview']);
+
+    (function() {
+      var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+      ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+    })();
+  </script>
+
+
+</head>
+
+<body   >
+  <header role="banner"><hgroup>
+  <h1><a href="/">Gazler</a></h1>
+  
+    <h2>Brought to you by the founder of Githug!</h2>
+  
+</hgroup>
+
+</header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="/atom.xml" rel="subscribe-rss" title="subscribe via RSS">RSS</a></li>
+  
+</ul>
+  
+<form action="http://google.com/search" method="get">
+  <fieldset role="search">
+    <input type="hidden" name="q" value="site:Gazler.github.com" />
+    <input class="search" type="text" name="q" results="0" placeholder="Search"/>
+  </fieldset>
+</form>
+  
+<ul class="main-navigation">
+  <li><a href="/">Blog</a></li>
+  <li><a href="/blog/archives">Archives</a></li>
+  <li><a href="/talks">Talks</a></li>
+</ul>
+
+</nav>
+  <div id="main">
+    <div id="content">
+      <div>
+<article class="hentry" role="article">
+  
+  <header>
+    
+      <h1 class="entry-title">Writing a Demo Mode in Backbone</h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2012-11-19T18:59:00+00:00" pubdate data-updated="true">Nov 19<span>th</span>, 2012</time>
+        
+         | <a href="#disqus_thread">Comments</a>
+        
+      </p>
+    
+  </header>
+
+
+<div class="entry-content"><h2>Background</h2>
+
+<p>When writing an application in Backbone, it is highly likely that you utilize <a href="http://backbonejs.org/#Collection-fetch">fetch()</a> to retrieve data from your web server and <a href="http://backbonejs.org/#Model-save">save()</a> to store data on it.  This is exactly what we did for <a href="http://upti.lt">Uptilt</a> our entry for the Rails Rumble 2012 (the making of you can read about on <a href="http://uptiltgame.tumblr.com/">the Uptilt Blog</a>).</p>
+
+<p>One of the key issues with Uptilt being a two player game is that it needs two people to play the game.  The solution to this is to use a demo (or practice) mode.  In the case of Uptilt, this involved implementing the game rules for card comparison client-side.  We also didn&#8217;t want any interaction with the server when the practice game is in progress as the game is not recorded in the database.</p>
+
+<!-- more -->
+
+
+<h2>Overwriting fetch() and save()</h2>
+
+<p>As is the case in most Backbone applications, we have an init function defined in the namespace which starts everything off (sets up the collections and renders the first views.)</p>
+
+<figure class='code'> <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='js'><span class='line'><span class="nx">$</span><span class="p">(</span><span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>  <span class="nx">uptilt</span><span class="p">.</span><span class="nx">init</span><span class="p">({</span>
+</span><span class='line'>    <span class="nx">game_id</span><span class="o">:</span> <span class="o">&lt;%=</span><span class="err">@</span><span class="nx">game</span><span class="p">.</span><span class="nx">id</span><span class="o">%&gt;</span><span class="p">,</span>
+</span><span class='line'>    <span class="c1">//Lots of other data</span>
+</span><span class='line'>    <span class="nx">timer</span><span class="o">:</span> <span class="mi">30</span>
+</span><span class='line'>  <span class="p">});</span>
+</span><span class='line'><span class="p">});</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>This is the only code needed from the HTML to pass all the data through to the Backbone application and get things started.  The init function looks something like:</p>
+
+<figure class='code'> <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+</pre></td><td class='code'><pre><code class='js'><span class='line'><span class="nx">init</span><span class="o">:</span> <span class="kd">function</span><span class="p">(</span><span class="nx">options</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>  <span class="nx">_</span><span class="p">.</span><span class="nx">bindAll</span><span class="p">(</span><span class="k">this</span><span class="p">);</span>
+</span><span class='line'>  <span class="nx">_</span><span class="p">.</span><span class="nx">extend</span><span class="p">(</span><span class="k">this</span><span class="p">,</span> <span class="nx">Backbone</span><span class="p">.</span><span class="nx">Events</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">this</span><span class="p">.</span><span class="nx">first_card</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Uptilt</span><span class="p">.</span><span class="nx">Models</span><span class="p">.</span><span class="nx">Card</span><span class="p">(</span><span class="nx">options</span><span class="p">.</span><span class="nx">first_card</span><span class="p">);</span>
+</span><span class='line'>  <span class="k">this</span><span class="p">.</span><span class="nx">player</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Uptilt</span><span class="p">.</span><span class="nx">Models</span><span class="p">.</span><span class="nx">Player</span><span class="p">(</span><span class="nx">options</span><span class="p">.</span><span class="nx">player</span><span class="p">);</span>
+</span><span class='line'>  <span class="k">this</span><span class="p">.</span><span class="nx">opponent</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Uptilt</span><span class="p">.</span><span class="nx">Models</span><span class="p">.</span><span class="nx">Player</span><span class="p">(</span><span class="nx">options</span><span class="p">.</span><span class="nx">opponent</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="nb">window</span><span class="p">.</span><span class="nx">notifier</span><span class="p">.</span><span class="nx">subscribe</span><span class="p">(</span><span class="nx">options</span><span class="p">.</span><span class="nx">channel</span><span class="p">);</span>
+</span><span class='line'>  <span class="nb">window</span><span class="p">.</span><span class="nx">notifier</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s2">&quot;connected&quot;</span><span class="p">,</span> <span class="k">this</span><span class="p">.</span><span class="nx">startGame</span><span class="p">);</span>
+</span><span class='line'><span class="p">},</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The important points are that:</p>
+
+<ul>
+<li>There are some variables that are set to some values passed through from the HTML call to the init function</li>
+<li>The notifier (which I have <a href="http://blog.gazler.com/blog/2012/04/02/making-backbone-applications-realtime-with-pusher/">posted about before</a> will trigger the preload function when connected is called.</li>
+</ul>
+
+
+<p>Here is the startGame function:</p>
+
+<figure class='code'> <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class='js'><span class='line'><span class="nx">startGame</span><span class="o">:</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>  <span class="k">this</span><span class="p">.</span><span class="nx">board</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Uptilt</span><span class="p">.</span><span class="nx">Views</span><span class="p">.</span><span class="nx">Board</span><span class="p">();</span>
+</span><span class='line'>  <span class="nx">$</span><span class="p">(</span><span class="s2">&quot;#main&quot;</span><span class="p">).</span><span class="nx">append</span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">board</span><span class="p">.</span><span class="nx">render</span><span class="p">().</span><span class="nx">el</span><span class="p">);</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The specifics about the internals are unimportant except for the following points:</p>
+
+<ul>
+<li>When a user makes a turn, a <code>save()</code> is called on an instance of Uptilt.Models.Turn</li>
+<li>When a new card is required a <code>fetch()</code> is called on an instance of Uptilt.Models.card and the server sends a new card to the player</li>
+</ul>
+
+
+<p> Since these are the only two interactions with the server, the game could be implemented client-side by storing the state of the game on the client (since this is a one-player mode, cheating isn&#8217;t an issue, you are only cheating yourself!)</p>
+
+<p> The first step in doing so is to call a new method instead of init when the page loads:</p>
+
+<figure class='code'> <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='js'><span class='line'><span class="nx">Uptilt</span><span class="p">.</span><span class="nx">practice</span><span class="p">({</span>
+</span><span class='line'>  <span class="nx">cards</span><span class="o">:</span> <span class="c1">//cards JSON (of 30 cards)</span>
+</span><span class='line'>  <span class="nx">player</span><span class="o">:</span> <span class="c1">//player JSON</span>
+</span><span class='line'>  <span class="nx">opponent</span><span class="o">:</span> <span class="c1">//opponent JSON</span>
+</span><span class='line'><span class="p">});</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The practice code looks like this:</p>
+
+<figure class='code'> <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+</pre></td><td class='code'><pre><code class='js'><span class='line'>  <span class="nx">practice</span><span class="o">:</span> <span class="kd">function</span><span class="p">(</span><span class="nx">options</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>    <span class="nb">window</span><span class="p">.</span><span class="nx">notifier</span><span class="p">.</span><span class="nx">subscribe</span> <span class="o">=</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{};</span>
+</span><span class='line'>    <span class="k">this</span><span class="p">.</span><span class="nx">cards</span> <span class="o">=</span> <span class="nx">options</span><span class="p">.</span><span class="nx">cards</span><span class="p">;</span>
+</span><span class='line'>    <span class="p">[</span><span class="k">this</span><span class="p">.</span><span class="nx">playerCards</span><span class="p">,</span> <span class="k">this</span><span class="p">.</span><span class="nx">opponentCards</span><span class="p">]</span> <span class="o">=</span> <span class="k">this</span><span class="p">.</span><span class="nx">shuffleCards</span><span class="p">();</span>
+</span><span class='line'>    <span class="nx">options</span><span class="p">.</span><span class="nx">first_card</span> <span class="o">=</span> <span class="k">this</span><span class="p">.</span><span class="nx">playerCards</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
+</span><span class='line'>    <span class="k">this</span><span class="p">.</span><span class="nx">practiceModels</span><span class="p">();</span>
+</span><span class='line'>    <span class="k">this</span><span class="p">.</span><span class="nx">init</span><span class="p">(</span><span class="nx">options</span><span class="p">);</span>
+</span><span class='line'>    <span class="k">this</span><span class="p">.</span><span class="nx">startGame</span><span class="p">();</span>
+</span><span class='line'>  <span class="p">},</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>You will notice that this code is responsible for:</p>
+
+<ul>
+<li>Stubbing out the notifier (No push notifications are required in a single player game)</li>
+<li>Setting up the initial card state</li>
+<li>Overriding the first_card variable that init expects.</li>
+<li>Calling init</li>
+<li>Manually calling startGame (Since the connected message on the notifier will never trigger)</li>
+</ul>
+
+
+<p> The most important method here is the practiceModels method, which looks like:</p>
+
+<figure class='code'> <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+</pre></td><td class='code'><pre><code class='js'><span class='line'><span class="nx">practiceModels</span><span class="o">:</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>  <span class="kd">var</span> <span class="nx">self</span> <span class="o">=</span> <span class="k">this</span><span class="p">;</span>
+</span><span class='line'>  <span class="nx">Uptilt</span><span class="p">.</span><span class="nx">Models</span><span class="p">.</span><span class="nx">Turn</span> <span class="o">=</span> <span class="nx">Backbone</span><span class="p">.</span><span class="nx">Model</span><span class="p">.</span><span class="nx">extend</span><span class="p">({</span>
+</span><span class='line'>    <span class="nx">save</span><span class="o">:</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>      <span class="nx">self</span><span class="p">.</span><span class="nx">determineOutcome</span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">get</span><span class="p">(</span><span class="s2">&quot;move&quot;</span><span class="p">).</span><span class="nx">rule_key</span><span class="p">);</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'>  <span class="p">});</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="nx">Uptilt</span><span class="p">.</span><span class="nx">Models</span><span class="p">.</span><span class="nx">Card</span> <span class="o">=</span> <span class="nx">Backbone</span><span class="p">.</span><span class="nx">Model</span><span class="p">.</span><span class="nx">extend</span><span class="p">({</span>
+</span><span class='line'>    <span class="nx">fetch</span><span class="o">:</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>      <span class="k">this</span><span class="p">.</span><span class="nx">attributes</span> <span class="o">=</span> <span class="nx">self</span><span class="p">.</span><span class="nx">playerCards</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
+</span><span class='line'>      <span class="k">this</span><span class="p">.</span><span class="nx">trigger</span><span class="p">(</span><span class="s2">&quot;change&quot;</span><span class="p">);</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'>  <span class="p">});</span>
+</span><span class='line'><span class="p">},</span>
+</span><span class='line'>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p> This function overrides the save method of Turn (that is what is called when a user clicks on their chosen attribute in the game of Uptilt) and instead calls determineOutcome (which is not shown but it is where the game logic is called client-side) emulating the code that is called on the server in a &#8220;real&#8221; game of Uptilt.</p>
+
+<p> It also overrides the fetch method of Card.  In Uptilt, a player can only see their current card to prevent a user being able to work out the cards that the opponent has in their hand.  In the case of the client, this is simply the card at the top of the players pile.  Triggering the &#8220;change&#8221; event is important as that is what the views are listening to and they will re-render accordingly.</p>
+
+<h2>The Results</h2>
+
+<p>That is all I had to do to make the game playable on the client side.  The entire commit was about 100 lines of JavaScript and not a single view had to be modified.  This same technique could be used to implement a tutorial style introduction to your site with ease.</p>
+
+<p>Does it work?  Why not try out a <a href="http://upti.lt/decks/3/practice">practice game</a> of Uptilt and see for yourself.</p>
+</div>
+
+
+  <footer>
+    <p class="meta">
+      
+  
+
+<span class="byline author vcard">Posted by <span class="fn">Gary Rennie</span></span>
+
+      
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2012-11-19T18:59:00+00:00" pubdate data-updated="true">Nov 19<span>th</span>, 2012</time>
+      
+
+<span class="categories">
+  
+    <a class='category' href='/blog/categories/backbone-js/'>backbone.js</a>, <a class='category' href='/blog/categories/javascript/'>javascript</a>
+  
+</span>
+
+
+    </p>
+    
+      <div class="sharing">
+  
+  <a href="http://twitter.com/share" class="twitter-share-button" data-url="http://Gazler.github.com/blog/2012/11/19/writing-a-demo-mode-in-backbone-by-overwriting-fetch-and-save/" data-via="TheGazler" data-counturl="http://Gazler.github.com/blog/2012/11/19/writing-a-demo-mode-in-backbone-by-overwriting-fetch-and-save/" >Tweet</a>
+  
+  
+  <div class="g-plusone" data-size="medium"></div>
+  
+  
+    <div class="fb-like" data-send="true" data-width="450" data-show-faces="false"></div>
+  
+</div>
+
+    
+    <p class="meta">
+      
+        <a class="basic-alignment left" href="/blog/2012/04/24/how-travis-is-teaching-me-to-cook/" title="Previous Post: How Travis Is Teaching Me To Cook">&laquo; How Travis Is Teaching Me To Cook</a>
+      
+      
+        <a class="basic-alignment right" href="/blog/2013/01/30/writing-your-first-pebble-watchface/" title="Next Post: Writing Your First Pebble Watchface">Writing Your First Pebble Watchface &raquo;</a>
+      
+    </p>
+  </footer>
+</article>
+
+  <section>
+    <h1>Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+</div>
+  </section>
+
+</div>
+
+<aside class="sidebar">
+  
+    
+<section class="stackoverflow">
+  <h1>Stack Overflow</h1>
+  <a href="http://stackoverflow.com/users/219743/Gazler">
+  <img src="http://stackoverflow.com/users/flair/219743.png" width="208" height="58" alt="profile for Gazler at Stack Overflow, Q&amp;A for professional and enthusiast programmers" title="profile for Gazler at Stack Overflow, Q&amp;A for professional and enthusiast programmers">
+  </a>
+</section>
+
+
+
+<section>
+  <h1>Recent Posts</h1>
+  <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2015/07/18/subdomains-with-phoenix/">Subdomains With Phoenix</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2013/01/30/writing-your-first-pebble-watchface/">Writing Your First Pebble Watchface</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2012/11/19/writing-a-demo-mode-in-backbone-by-overwriting-fetch-and-save/">Writing a Demo Mode in Backbone</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2012/04/24/how-travis-is-teaching-me-to-cook/">How Travis Is Teaching Me To Cook</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2012/04/02/making-backbone-applications-realtime-with-pusher/">Making Backbone Applications Realtime With Pusher</a>
+      </li>
+    
+  </ul>
+</section>
+
+<section>
+  <h1>GitHub Repos</h1>
+  <ul id="gh_repos">
+    <li class="loading">Status updating...</li>
+  </ul>
+  
+  <a href="https://github.com/Gazler">@Gazler</a> on GitHub
+  
+  <script type="text/javascript">
+    $.domReady(function(){
+        if (!window.jXHR){
+            var jxhr = document.createElement('script');
+            jxhr.type = 'text/javascript';
+            jxhr.src = '/javascripts/libs/jXHR.js';
+            var s = document.getElementsByTagName('script')[0];
+            s.parentNode.insertBefore(jxhr, s);
+        }
+
+        github.showRepos({
+            user: 'Gazler',
+            count: 4,
+            skip_forks: true,
+            target: '#gh_repos'
+        });
+    });
+  </script>
+  <script src="/javascripts/github.js" type="text/javascript"> </script>
+</section>
+
+
+<section>
+  <h1>Latest Tweets</h1>
+  <ul id="tweets">
+    <li class="loading">Status updating...</li>
+  </ul>
+  <script type="text/javascript">
+    $.domReady(function(){
+      getTwitterFeed("TheGazler", 4, false);
+    });
+  </script>
+  <script src="/javascripts/twitter.js" type="text/javascript"> </script>
+  
+    <a href="http://twitter.com/TheGazler" class="twitter-follow-button" data-show-count="false">Follow @TheGazler</a>
+  
+</section>
+
+
+
+
+
+  
+</aside>
+
+
+    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  Copyright &copy; 2017 - Gary Rennie -
+  <span class="credit">Powered by <a href="http://octopress.org">Octopress</a></span>
+</p>
+
+</footer>
+  
+
+<script type="text/javascript">
+      var disqus_shortname = 'gazler';
+      
+        
+        // var disqus_developer = 1;
+        var disqus_identifier = 'http://Gazler.github.com/blog/2012/11/19/writing-a-demo-mode-in-backbone-by-overwriting-fetch-and-save/';
+        var disqus_url = 'http://Gazler.github.com/blog/2012/11/19/writing-a-demo-mode-in-backbone-by-overwriting-fetch-and-save/';
+        var disqus_script = 'embed.js';
+      
+    (function () {
+      var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+      dsq.src = 'http://' + disqus_shortname + '.disqus.com/' + disqus_script;
+      (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    }());
+</script>
+
+
+
+<div id="fb-root"></div>
+<script>(function(d, s, id) {
+  var js, fjs = d.getElementsByTagName(s)[0];
+  if (d.getElementById(id)) {return;}
+  js = d.createElement(s); js.id = id;
+  js.src = "//connect.facebook.net/en_US/all.js#appId=212934732101925&xfbml=1";
+  fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));</script>
+
+
+
+  <script type="text/javascript">
+    (function() {
+      var script = document.createElement('script'); script.type = 'text/javascript'; script.async = true;
+      script.src = 'https://apis.google.com/js/plusone.js';
+      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(script, s);
+    })();
+  </script>
+
+
+
+  <script type="text/javascript">
+    (function(){
+      var twitterWidgets = document.createElement('script');
+      twitterWidgets.type = 'text/javascript';
+      twitterWidgets.async = true;
+      twitterWidgets.src = 'http://platform.twitter.com/widgets.js';
+      document.getElementsByTagName('head')[0].appendChild(twitterWidgets);
+    })();
+  </script>
+
+
+
+
+
+</body>
+</html>

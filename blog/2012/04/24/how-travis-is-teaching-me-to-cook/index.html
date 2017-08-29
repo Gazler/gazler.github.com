@@ -1,0 +1,596 @@
+
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>How Travis Is Teaching Me To Cook - Gazler</title>
+  <meta name="author" content="Gary Rennie">
+
+  
+  <meta name="description" content="Note: the contents of this post are heavily influenced by Sous Chef. Over the past couple of weeks I have been working with a mobile developer to &hellip;">
+  
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+  <link rel="canonical" href="http://Gazler.github.com/blog/2012/04/24/how-travis-is-teaching-me-to-cook/">
+  <link href="/favicon.png" rel="icon">
+  <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+  <script src="/javascripts/modernizr-2.0.js"></script>
+  <script src="/javascripts/ender.js"></script>
+  <script src="/javascripts/octopress.js" type="text/javascript"></script>
+  <link href="/atom.xml" rel="alternate" title="Gazler" type="application/atom+xml">
+  <!--Fonts from Google"s Web font directory at http://google.com/webfonts -->
+<link href="http://fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+<link href="http://fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+
+  
+  <script type="text/javascript">
+    var _gaq = _gaq || [];
+    _gaq.push(['_setAccount', 'UA-28197078-2']);
+    _gaq.push(['_trackPageview']);
+
+    (function() {
+      var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+      ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+    })();
+  </script>
+
+
+</head>
+
+<body   >
+  <header role="banner"><hgroup>
+  <h1><a href="/">Gazler</a></h1>
+  
+    <h2>Brought to you by the founder of Githug!</h2>
+  
+</hgroup>
+
+</header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="/atom.xml" rel="subscribe-rss" title="subscribe via RSS">RSS</a></li>
+  
+</ul>
+  
+<form action="http://google.com/search" method="get">
+  <fieldset role="search">
+    <input type="hidden" name="q" value="site:Gazler.github.com" />
+    <input class="search" type="text" name="q" results="0" placeholder="Search"/>
+  </fieldset>
+</form>
+  
+<ul class="main-navigation">
+  <li><a href="/">Blog</a></li>
+  <li><a href="/blog/archives">Archives</a></li>
+  <li><a href="/talks">Talks</a></li>
+</ul>
+
+</nav>
+  <div id="main">
+    <div id="content">
+      <div>
+<article class="hentry" role="article">
+  
+  <header>
+    
+      <h1 class="entry-title">How Travis Is Teaching Me to Cook</h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2012-04-24T12:39:00+01:00" pubdate data-updated="true">Apr 24<span>th</span>, 2012</time>
+        
+         | <a href="#disqus_thread">Comments</a>
+        
+      </p>
+    
+  </header>
+
+
+<div class="entry-content"><p><strong>Note: the contents of this post are heavily influenced by <a href="https://github.com/michaelklishin/sous-chef">Sous Chef</a>. </strong></p>
+
+<p>Over the past couple of weeks I have been working with a mobile developer to help integrate with one of my applications.  We plan on using OAuth (Which I have blogged about <a href="http://blog.gazler.com/blog/2012/01/08/oauth2-provider-with-rails/">here</a>) to authenticate the mobile application with the server.  The problem with this is that the rails application is still in development, and the mobile developer doesn&#8217;t have the code running.  I don&#8217;t want them to worry about dependencies, setting up the database or setting up git access via ssh keys, I just want him to be able to run the server.</p>
+
+<p>This is where <a href="http://vagrantup.com/">Vagrant</a> comes in.  Vagrant allows you to create Virtual Machines (using VirtualBox) programatically.  This means that I can create a VM of my application, hand it to anothe developer and let them get on with it.  Vagrant can utilize <a href="http://www.opscode.com/chef/">Chef</a> to build the machine.  Chef is an integration framework that makes it easy to deploy servers, which it does using cookbooks and recipes.  A recipe is for installing a particular piece of software and a cookbook is a collection of recipes.  There are plenty of cookbooks available online, I opted to use a set of cookbooks developed by <a href="http://travis-ci.org">Travis CI</a> that are available <a href="https://github.com/travis-ci/travis-cookbooks">on GitHub</a></p>
+
+<h2>Getting Started</h2>
+
+<p>The first thing to do is install Vagrant.  I chose to use the gem by doing:</p>
+
+<pre><code>gem install vagrant
+</code></pre>
+
+<p>However there are binaries available on their <a href="http://downloads.vagrantup.com/tags/v1.0.2">downloads</a> page.</p>
+
+<!-- more -->
+
+
+<p>The next step is to create a folder for vagrant to sit in and intialize vagrant.</p>
+
+<pre><code>mkdir my_application &amp;&amp; cd my_application
+vagrant init
+</code></pre>
+
+<p>This will create a Vagrantfile in your repository that should look like this:</p>
+
+<figure class='code'><figcaption><span>Vagrantfile  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="c1"># -*- mode: ruby -*-</span>
+</span><span class='line'><span class="c1"># vi: set ft=ruby :</span>
+</span><span class='line'>
+</span><span class='line'><span class="no">Vagrant</span><span class="o">::</span><span class="no">Config</span><span class="o">.</span><span class="n">run</span> <span class="k">do</span> <span class="o">|</span><span class="n">config</span><span class="o">|</span>
+</span><span class='line'>  <span class="n">config</span><span class="o">.</span><span class="n">vm</span><span class="o">.</span><span class="n">box</span> <span class="o">=</span> <span class="s2">&quot;base&quot;</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="c1">#lots of comments!</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The first two lines tell your editor what syntax highlighting to use, which is ruby.  We&#8217;re going to make some changes inside the config block, so remove the <code>config.vm.box = "base"</code> line.  The next step is to specify the &#8220;box&#8221; that is, the machine we want to boot from.  In this case I am using Ubuntu 11.04 provided by Travis CI.</p>
+
+<figure class='code'><figcaption><span>Vagrantfile  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="no">Vagrant</span><span class="o">::</span><span class="no">Config</span><span class="o">.</span><span class="n">run</span> <span class="k">do</span> <span class="o">|</span><span class="n">config</span><span class="o">|</span>
+</span><span class='line'>
+</span><span class='line'>   <span class="n">config</span><span class="o">.</span><span class="n">vm</span><span class="o">.</span><span class="n">box</span>     <span class="o">=</span> <span class="s2">&quot;natty32_base&quot;</span>
+</span><span class='line'>   <span class="n">config</span><span class="o">.</span><span class="n">vm</span><span class="o">.</span><span class="n">box_url</span> <span class="o">=</span> <span class="s2">&quot;http://files.travis-ci.org/boxes/bases/natty32.box&quot;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>This is all you need to start up.  If you run the command:</p>
+
+<pre><code>vagrant up
+</code></pre>
+
+<p>Then the virtual box will be started, and you can shell into it using <code>vagrant ssh</code>.</p>
+
+<h2>Cooking With Chef</h2>
+
+<p>Now that the VM is working, you could ssh in and install all the dependencies, but that isn&#8217;t really a good way of doing it.  You would have to provide build instructions to other people using the box.  Instead, Chef can be used to install software on the VM.</p>
+
+<p>First of all, clone the cookbooks from Travis CI (or somewhere else if you use other cookbooks.)</p>
+
+<pre><code>git clone git://github.com/travis-ci/travis-cookbooks.git cookbooks
+</code></pre>
+
+<p>With the cookbooks, you can now modify your Vagrantfile to install software.</p>
+
+<figure class='code'><figcaption><span>Vagrantfile  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="no">Vagrant</span><span class="o">::</span><span class="no">Config</span><span class="o">.</span><span class="n">run</span> <span class="k">do</span> <span class="o">|</span><span class="n">config</span><span class="o">|</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="n">config</span><span class="o">.</span><span class="n">vm</span><span class="o">.</span><span class="n">box</span>     <span class="o">=</span> <span class="s2">&quot;natty32_base&quot;</span>
+</span><span class='line'>    <span class="n">config</span><span class="o">.</span><span class="n">vm</span><span class="o">.</span><span class="n">box_url</span> <span class="o">=</span> <span class="s2">&quot;http://files.travis-ci.org/boxes/bases/natty32.box&quot;</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="n">config</span><span class="o">.</span><span class="n">vm</span><span class="o">.</span><span class="n">provision</span> <span class="ss">:chef_solo</span> <span class="k">do</span> <span class="o">|</span><span class="n">chef</span><span class="o">|</span>
+</span><span class='line'>      <span class="n">chef</span><span class="o">.</span><span class="n">cookbooks_path</span> <span class="o">=</span> <span class="o">[</span><span class="s2">&quot;cookbooks/ci_environment&quot;</span><span class="o">]</span>
+</span><span class='line'>      <span class="n">chef</span><span class="o">.</span><span class="n">log_level</span> <span class="o">=</span> <span class="ss">:debug</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'>      <span class="c1">#Install application dependencies - apt and build-essential are a must</span>
+</span><span class='line'>      <span class="n">chef</span><span class="o">.</span><span class="n">add_recipe</span> <span class="s2">&quot;apt&quot;</span>
+</span><span class='line'>      <span class="n">chef</span><span class="o">.</span><span class="n">add_recipe</span> <span class="s2">&quot;build-essential&quot;</span>
+</span><span class='line'>      <span class="n">chef</span><span class="o">.</span><span class="n">add_recipe</span> <span class="s2">&quot;git&quot;</span>
+</span><span class='line'>      <span class="n">chef</span><span class="o">.</span><span class="n">add_recipe</span> <span class="s2">&quot;rvm&quot;</span>
+</span><span class='line'>      <span class="n">chef</span><span class="o">.</span><span class="n">add_recipe</span> <span class="s2">&quot;sqlite&quot;</span>
+</span><span class='line'>      <span class="n">chef</span><span class="o">.</span><span class="n">json</span><span class="o">.</span><span class="n">merge!</span><span class="p">({</span>
+</span><span class='line'>                          <span class="ss">:apt</span> <span class="o">=&gt;</span> <span class="p">{</span>
+</span><span class='line'>                            <span class="ss">:mirror</span> <span class="o">=&gt;</span> <span class="ss">:ru</span>
+</span><span class='line'>                          <span class="p">},</span>
+</span><span class='line'>                          <span class="ss">:rvm</span> <span class="o">=&gt;</span> <span class="p">{</span>
+</span><span class='line'>                            <span class="ss">:rubies</span>  <span class="o">=&gt;</span> <span class="o">[</span><span class="p">{</span> <span class="ss">:name</span> <span class="o">=&gt;</span> <span class="s2">&quot;1.9.2&quot;</span> <span class="p">}</span><span class="o">]</span>
+</span><span class='line'>                          <span class="p">},</span>
+</span><span class='line'>                          <span class="ss">:travis_build_environment</span> <span class="o">=&gt;</span> <span class="p">{</span>
+</span><span class='line'>                            <span class="ss">:user</span> <span class="o">=&gt;</span> <span class="s2">&quot;vagrant&quot;</span><span class="p">,</span>
+</span><span class='line'>                            <span class="ss">:group</span> <span class="o">=&gt;</span> <span class="s2">&quot;vagrant&quot;</span>
+</span><span class='line'>                          <span class="p">}</span>
+</span><span class='line'>                       <span class="p">})</span>
+</span><span class='line'>    <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>You can call <code>chef.add_recipe</code> to install all of your application dependencies, you can check the cookbooks/ci_environment folder to see which recipes are available.  The last line in the config (<code>chef.json.merge</code>) contains the configuration used by the recipes (<a href="http://wiki.opscode.com/display/chef/Attributes">read more here</a>.)</p>
+
+<p>If you run <code>vagrant provision</code> then it will install all your dependencies (including ruby 1.9.2 as specified in the json block.)</p>
+
+<p>When this finishes, you can ssh into your box by calling <code>vagrant ssh</code> and check that ruby has been installed by typing <code>ruby -v</code> and it should return 1.9.2</p>
+
+<h2>Running your application</h2>
+
+<p>It is now time to add the application to the box.  To do this, a new recipe must be created.  I would recommend creating a new folder for your cookbook.  I called mine &#8220;application_cookbook&#8221;</p>
+
+<pre><code>mkdir -p application_cookbook/main/recipes
+</code></pre>
+
+<p>&#8220;main&#8221; is the name of your recipe and &#8220;recipes&#8221; is where the recipes live.  Create a new file in recipes called &#8220;default.rb&#8221; and inside the file, put the following:</p>
+
+<figure class='code'><figcaption><span>default.rb </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+</pre></td><td class='code'><pre><code class='rb'><span class='line'><span class="n">application_dir</span> <span class="o">=</span> <span class="s2">&quot;/home/vagrant/application&quot;</span>
+</span><span class='line'><span class="c1">#install bundler</span>
+</span><span class='line'><span class="n">gem_package</span> <span class="s2">&quot;bundler&quot;</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">#update rubygems</span>
+</span><span class='line'><span class="n">execute</span> <span class="s2">&quot;gem&quot;</span> <span class="k">do</span>
+</span><span class='line'>  <span class="n">command</span> <span class="s2">&quot;gem update --system&quot;</span>
+</span><span class='line'>  <span class="n">cwd</span> <span class="n">application_dir</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">execute</span> <span class="s2">&quot;bundle&quot;</span> <span class="k">do</span>
+</span><span class='line'>  <span class="n">command</span> <span class="s2">&quot;bundle&quot;</span>
+</span><span class='line'>  <span class="n">cwd</span> <span class="n">application_dir</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">#clear and migrate the database</span>
+</span><span class='line'><span class="n">execute</span> <span class="s2">&quot;bundle&quot;</span> <span class="k">do</span>
+</span><span class='line'>  <span class="n">command</span> <span class="s2">&quot;bundle exec rake db:drop db:migrate db:seed&quot;</span>
+</span><span class='line'>  <span class="n">cwd</span> <span class="n">application_dir</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">#start the server and daemonize it</span>
+</span><span class='line'><span class="n">execute</span> <span class="s2">&quot;rails&quot;</span> <span class="k">do</span>
+</span><span class='line'>  <span class="n">command</span> <span class="s2">&quot;rails s -d&quot;</span>
+</span><span class='line'>  <span class="n">cwd</span> <span class="n">application_dir</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>This will install all the required gems and set up the database.  You may notice that we reference /home/vagrant/applicaiton, this is a folder we haven&#8217;t created yet.  To do so we need some additional changes to the Vagrantfile.</p>
+
+<figure class='code'><figcaption><span>Vagrantfile  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="no">Vagrant</span><span class="o">::</span><span class="no">Config</span><span class="o">.</span><span class="n">run</span> <span class="k">do</span> <span class="o">|</span><span class="n">config</span><span class="o">|</span>
+</span><span class='line'>  <span class="n">config</span><span class="o">.</span><span class="n">vm</span><span class="o">.</span><span class="n">provision</span> <span class="ss">:chef_solo</span> <span class="k">do</span> <span class="o">|</span><span class="n">chef</span><span class="o">|</span>
+</span><span class='line'>    <span class="c1">#Change the cookbooks_path to inclide your new recipes</span>
+</span><span class='line'>    <span class="n">chef</span><span class="o">.</span><span class="n">cookbooks_path</span> <span class="o">=</span> <span class="o">[</span><span class="s2">&quot;cookbooks/ci_environment&quot;</span><span class="p">,</span> <span class="s2">&quot;application_cookbook&quot;</span><span class="o">]</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c1">#keep all the old code here</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c1">#Add your new recipe</span>
+</span><span class='line'>    <span class="n">chef</span><span class="o">.</span><span class="n">add_recipe</span> <span class="s2">&quot;main&quot;</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="c1">#Create a reference to your application folder</span>
+</span><span class='line'>  <span class="n">config</span><span class="o">.</span><span class="n">vm</span><span class="o">.</span><span class="n">share_folder</span> <span class="s2">&quot;application&quot;</span><span class="p">,</span> <span class="s2">&quot;application&quot;</span><span class="p">,</span> <span class="s2">&quot;application&quot;</span><span class="p">,</span> <span class="ss">:create</span> <span class="o">=&gt;</span> <span class="kp">true</span>
+</span><span class='line'>  <span class="c1">#forward requests for port 3000 to the virtual box</span>
+</span><span class='line'>  <span class="n">config</span><span class="o">.</span><span class="n">vm</span><span class="o">.</span><span class="n">forward_port</span> <span class="mi">3000</span><span class="p">,</span> <span class="mi">3000</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The final step is to move your application folder into your current directory <code>cp -r /path/to/application .</code></p>
+
+<p>You will need to reload vagrant as there are port and share folder changes.</p>
+
+<pre><code>vagrant reload
+</code></pre>
+
+<p>When everything finishes, when you navigate to <a href="http://localhost:3000">http://localhost:3000</a> then you should see your application!</p>
+
+<p>After I followed the above steps, I could zip up the folder, give it to the other developer and he was set.  He could extract the files, run <code>vagrant up</code> and access the server.</p>
+</div>
+
+
+  <footer>
+    <p class="meta">
+      
+  
+
+<span class="byline author vcard">Posted by <span class="fn">Gary Rennie</span></span>
+
+      
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2012-04-24T12:39:00+01:00" pubdate data-updated="true">Apr 24<span>th</span>, 2012</time>
+      
+
+<span class="categories">
+  
+    <a class='category' href='/blog/categories/chef/'>chef</a>, <a class='category' href='/blog/categories/rails/'>rails</a>, <a class='category' href='/blog/categories/ruby/'>ruby</a>, <a class='category' href='/blog/categories/vagrant/'>vagrant</a>
+  
+</span>
+
+
+    </p>
+    
+      <div class="sharing">
+  
+  <a href="http://twitter.com/share" class="twitter-share-button" data-url="http://Gazler.github.com/blog/2012/04/24/how-travis-is-teaching-me-to-cook/" data-via="TheGazler" data-counturl="http://Gazler.github.com/blog/2012/04/24/how-travis-is-teaching-me-to-cook/" >Tweet</a>
+  
+  
+  <div class="g-plusone" data-size="medium"></div>
+  
+  
+    <div class="fb-like" data-send="true" data-width="450" data-show-faces="false"></div>
+  
+</div>
+
+    
+    <p class="meta">
+      
+        <a class="basic-alignment left" href="/blog/2012/04/02/making-backbone-applications-realtime-with-pusher/" title="Previous Post: Making Backbone Applications Realtime With Pusher">&laquo; Making Backbone Applications Realtime With Pusher</a>
+      
+      
+        <a class="basic-alignment right" href="/blog/2012/11/19/writing-a-demo-mode-in-backbone-by-overwriting-fetch-and-save/" title="Next Post: Writing a Demo Mode in Backbone">Writing a Demo Mode in Backbone &raquo;</a>
+      
+    </p>
+  </footer>
+</article>
+
+  <section>
+    <h1>Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+</div>
+  </section>
+
+</div>
+
+<aside class="sidebar">
+  
+    
+<section class="stackoverflow">
+  <h1>Stack Overflow</h1>
+  <a href="http://stackoverflow.com/users/219743/Gazler">
+  <img src="http://stackoverflow.com/users/flair/219743.png" width="208" height="58" alt="profile for Gazler at Stack Overflow, Q&amp;A for professional and enthusiast programmers" title="profile for Gazler at Stack Overflow, Q&amp;A for professional and enthusiast programmers">
+  </a>
+</section>
+
+
+
+<section>
+  <h1>Recent Posts</h1>
+  <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2015/07/18/subdomains-with-phoenix/">Subdomains With Phoenix</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2013/01/30/writing-your-first-pebble-watchface/">Writing Your First Pebble Watchface</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2012/11/19/writing-a-demo-mode-in-backbone-by-overwriting-fetch-and-save/">Writing a Demo Mode in Backbone</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2012/04/24/how-travis-is-teaching-me-to-cook/">How Travis Is Teaching Me To Cook</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2012/04/02/making-backbone-applications-realtime-with-pusher/">Making Backbone Applications Realtime With Pusher</a>
+      </li>
+    
+  </ul>
+</section>
+
+<section>
+  <h1>GitHub Repos</h1>
+  <ul id="gh_repos">
+    <li class="loading">Status updating...</li>
+  </ul>
+  
+  <a href="https://github.com/Gazler">@Gazler</a> on GitHub
+  
+  <script type="text/javascript">
+    $.domReady(function(){
+        if (!window.jXHR){
+            var jxhr = document.createElement('script');
+            jxhr.type = 'text/javascript';
+            jxhr.src = '/javascripts/libs/jXHR.js';
+            var s = document.getElementsByTagName('script')[0];
+            s.parentNode.insertBefore(jxhr, s);
+        }
+
+        github.showRepos({
+            user: 'Gazler',
+            count: 4,
+            skip_forks: true,
+            target: '#gh_repos'
+        });
+    });
+  </script>
+  <script src="/javascripts/github.js" type="text/javascript"> </script>
+</section>
+
+
+<section>
+  <h1>Latest Tweets</h1>
+  <ul id="tweets">
+    <li class="loading">Status updating...</li>
+  </ul>
+  <script type="text/javascript">
+    $.domReady(function(){
+      getTwitterFeed("TheGazler", 4, false);
+    });
+  </script>
+  <script src="/javascripts/twitter.js" type="text/javascript"> </script>
+  
+    <a href="http://twitter.com/TheGazler" class="twitter-follow-button" data-show-count="false">Follow @TheGazler</a>
+  
+</section>
+
+
+
+
+
+  
+</aside>
+
+
+    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  Copyright &copy; 2017 - Gary Rennie -
+  <span class="credit">Powered by <a href="http://octopress.org">Octopress</a></span>
+</p>
+
+</footer>
+  
+
+<script type="text/javascript">
+      var disqus_shortname = 'gazler';
+      
+        
+        // var disqus_developer = 1;
+        var disqus_identifier = 'http://Gazler.github.com/blog/2012/04/24/how-travis-is-teaching-me-to-cook/';
+        var disqus_url = 'http://Gazler.github.com/blog/2012/04/24/how-travis-is-teaching-me-to-cook/';
+        var disqus_script = 'embed.js';
+      
+    (function () {
+      var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+      dsq.src = 'http://' + disqus_shortname + '.disqus.com/' + disqus_script;
+      (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    }());
+</script>
+
+
+
+<div id="fb-root"></div>
+<script>(function(d, s, id) {
+  var js, fjs = d.getElementsByTagName(s)[0];
+  if (d.getElementById(id)) {return;}
+  js = d.createElement(s); js.id = id;
+  js.src = "//connect.facebook.net/en_US/all.js#appId=212934732101925&xfbml=1";
+  fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));</script>
+
+
+
+  <script type="text/javascript">
+    (function() {
+      var script = document.createElement('script'); script.type = 'text/javascript'; script.async = true;
+      script.src = 'https://apis.google.com/js/plusone.js';
+      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(script, s);
+    })();
+  </script>
+
+
+
+  <script type="text/javascript">
+    (function(){
+      var twitterWidgets = document.createElement('script');
+      twitterWidgets.type = 'text/javascript';
+      twitterWidgets.async = true;
+      twitterWidgets.src = 'http://platform.twitter.com/widgets.js';
+      document.getElementsByTagName('head')[0].appendChild(twitterWidgets);
+    })();
+  </script>
+
+
+
+
+
+</body>
+</html>

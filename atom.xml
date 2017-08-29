@@ -1,0 +1,2185 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Gazler]]></title>
+  <link href="http://Gazler.github.com/atom.xml" rel="self"/>
+  <link href="http://Gazler.github.com/"/>
+  <updated>2017-08-29T17:44:23+01:00</updated>
+  <id>http://Gazler.github.com/</id>
+  <author>
+    <name><![CDATA[Gary Rennie]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Subdomains With Phoenix]]></title>
+    <link href="http://Gazler.github.com/blog/2015/07/18/subdomains-with-phoenix/"/>
+    <updated>2015-07-18T16:22:00+01:00</updated>
+    <id>http://Gazler.github.com/blog/2015/07/18/subdomains-with-phoenix</id>
+    <content type="html"><![CDATA[<p>A common requirement for applications is to have a subdomain per customer that users belonging to that customer can visit. Example of this include: <a href="https://slack.com">Slack</a> (https://elixir.slack.com, https://phoenix.slack.com, etc.) and <a href="https://readme.io">ReadMe</a>.</p>
+
+<p>This blog post will go through how to set up your Phoenix application so that it can be used in the same way.</p>
+
+<p>The source code for this repository is available at <a href="https://github.com/Gazler/phoenix-subdomain-demo">https://github.com/Gazler/phoenix-subdomain-demo</a> - there is a commit to represent each step in this post.</p>
+
+<h2>Getting Started</h2>
+
+<p>The first thing we will need is a new Phoenix application. Since it is focused on subdomains, I am going to call it subdomainer:</p>
+
+<pre><code>mix phoenix.new subdomainer
+</code></pre>
+
+<p>Once the app has been created and all the dependencies have been installed, start the app and visit it at <a href="http://localhost:4000">http://localhost:4000</a>.</p>
+
+<pre><code>mix phoenix.server
+</code></pre>
+
+<p>Next we need to ensure that it is accessible via a separate domain and subomains, so the following needs to be added to your <code>/etc/hosts</code> file:</p>
+
+<pre><code>127.0.0.1 subdomainer.dev foo.subdomainer.dev bar.subdomainer.dev
+</code></pre>
+
+<p>With these additions, you should also be able to access the application via: <a href="http://subdomainer.dev:4000">http://subdomainer.dev:4000</a>, <a href="http://foo.subdomainer.dev:4000">http://foo.subdomainer.dev:4000</a> and <a href="http://bar.subdomainer.dev:4000">http://bar.subdomainer.dev:4000</a></p>
+
+<p>Currently these all point to the same page, but we are going to modify it so that it displays information about the particular app that we are trying to visit.</p>
+
+<h2>Determining If A Subdomain Has Been Set</h2>
+
+<!-- more -->
+
+
+<p>With the app as it stands, if a user visits http://subdomainer.dev:4000 then we want to display the default Phoenix page that was generated with the application. However if they visit http://foo.subdomainer.dev:4000 or any subdomain then we want to show a different page. For the moment, we won&#8217;t worry too much about which subdomain is being viewed, only that there is a subdomain present.</p>
+
+<p>We need to configure the application so that it knows which domain is the root domain. This is because you cannot make any guarantees about the number of subdomains. In this instance we know that <code>subdomainer.dev</code> is the root and <code>foo.subdomainer.dev</code> is a subdomain - however our root could be <code>app.subdomainer.dev</code> and the subdomain could be <code>foo.app.subdomainer.dev</code></p>
+
+<p>Replace the following in <code>config/config.exs</code> under the <code>config :subdomainer, Subdomainer.Endpoint</code> block that should be at the top of your file:</p>
+
+<figure class='code'> <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='elixir'><span class='line'>  <span class="ss">url</span><span class="p">:</span> <span class="p">[</span><span class="ss">host</span><span class="p">:</span> <span class="s2">&quot;localhost&quot;</span><span class="p">]</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>With:</p>
+
+<figure class='code'> <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='elixir'><span class='line'>  <span class="ss">url</span><span class="p">:</span> <span class="p">[</span><span class="ss">host</span><span class="p">:</span> <span class="s2">&quot;subdomainer.dev&quot;</span><span class="p">]</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>We now need to update our endpoint so it knows if a subdomain has been provided in the URL. Create a file <code>lib/subdomainer/plugs/subdomain.ex</code> file with the following:</p>
+
+<figure class='code'> <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+</pre></td><td class='code'><pre><code class='elixir'><span class='line'><span class="kd">defmodule</span> <span class="nc">Subdomainer.Plug.Subdomain</span> <span class="k">do</span>
+</span><span class='line'>  <span class="kn">import</span> <span class="nc">Plug.Conn</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="na">@doc</span> <span class="no">false</span>
+</span><span class='line'>  <span class="kd">def</span> <span class="n">init</span><span class="p">(</span><span class="n">default</span><span class="p">),</span> <span class="ss">do</span><span class="p">:</span> <span class="n">default</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="na">@doc</span> <span class="no">false</span>
+</span><span class='line'>  <span class="kd">def</span> <span class="n">call</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="n">router</span><span class="p">)</span> <span class="k">do</span>
+</span><span class='line'>    <span class="k">case</span> <span class="n">get_subdomain</span><span class="p">(</span><span class="n">conn</span><span class="p">.</span><span class="n">host</span><span class="p">)</span> <span class="k">do</span>
+</span><span class='line'>      <span class="n">subdomain</span> <span class="ow">when</span> <span class="n">byte_size</span><span class="p">(</span><span class="n">subdomain</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="p">-&gt;</span>
+</span><span class='line'>        <span class="n">conn</span>
+</span><span class='line'>        <span class="o">|&gt;</span> <span class="n">router</span><span class="p">.</span><span class="n">call</span><span class="p">(</span><span class="n">router</span><span class="p">.</span><span class="n">init</span><span class="p">({}))</span>
+</span><span class='line'>      <span class="bp">_</span> <span class="p">-&gt;</span> <span class="n">conn</span>
+</span><span class='line'>    <span class="k">end</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="kd">defp</span> <span class="n">get_subdomain</span><span class="p">(</span><span class="n">host</span><span class="p">)</span> <span class="k">do</span>
+</span><span class='line'>    <span class="n">root_host</span> <span class="p">=</span> <span class="nc">Subdomainer.Endpoint</span><span class="p">.</span><span class="n">config</span><span class="p">(</span><span class="ss">:url</span><span class="p">)[</span><span class="ss">:host</span><span class="p">]</span>
+</span><span class='line'>    <span class="nc">String</span><span class="p">.</span><span class="n">replace</span><span class="p">(</span><span class="n">host</span><span class="p">,</span> <span class="sx">~r/.?</span><span class="si">#{</span><span class="n">root_host</span><span class="si">}</span><span class="sx">/</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>This code here implements the <code>call/2</code> function expected by plug. This second argument we expect is the module that will be used if a subdomain is found. This also needs to be added to <code>lib/subdomainer/endpoint.ex</code> so that we can ensure our plug is called before the router. Add the following line <strong>before</strong> the <code>plug :router, Subdomainer.Router</code> line:</p>
+
+<figure class='code'> <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='elixir'><span class='line'>  <span class="n">plug</span> <span class="nc">Subdomainer.Plug.Subdomain</span><span class="p">,</span> <span class="nc">Subdomainer.SubdomainRouter</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>You will need to restart your server and start it again (with <code>mix phoenix.server</code>) every time you make a change to a file in the <code>lib</code> directory as only changes in the <code>web</code> directory do not require a reload.</p>
+
+<p>You can validate that this is working by visiting <a href="http://subdomainer.dev:4000">http://subdomainer.dev:4000</a> which will still work as before, however if you visit <a href="http://foo.subdomainer.dev:4000">http://foo.subdomainer.dev:4000</a> then you will see an error:</p>
+
+<blockquote><p>undefined function: Subdomainer.SubdomainRouter.init/1 (module Subdomainer.SubdomainRouter is not available)</p></blockquote>
+
+<p>This is because this router does not exist yet.</p>
+
+<h2>Adding The Subdomain Router</h2>
+
+<p>To fix the error we just need to create the SubdomainRouter at <code>web/subdomain_router.ex</code>:</p>
+
+<figure class='code'> <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+</pre></td><td class='code'><pre><code class='elixir'><span class='line'><span class="kd">defmodule</span> <span class="nc">Subdomainer.SubdomainRouter</span> <span class="k">do</span>
+</span><span class='line'>  <span class="kn">use</span> <span class="nc">Subdomainer.Web</span><span class="p">,</span> <span class="ss">:router</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="n">pipeline</span> <span class="ss">:browser</span> <span class="k">do</span>
+</span><span class='line'>    <span class="n">plug</span> <span class="ss">:accepts</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;html&quot;</span><span class="p">]</span>
+</span><span class='line'>    <span class="n">plug</span> <span class="ss">:fetch_session</span>
+</span><span class='line'>    <span class="n">plug</span> <span class="ss">:fetch_flash</span>
+</span><span class='line'>    <span class="n">plug</span> <span class="ss">:protect_from_forgery</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="n">scope</span> <span class="s2">&quot;/&quot;</span><span class="p">,</span> <span class="nc">Subdomainer</span> <span class="k">do</span>
+</span><span class='line'>    <span class="n">pipe_through</span> <span class="ss">:browser</span> <span class="c1"># Use the default browser stack</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="n">get</span> <span class="s2">&quot;/&quot;</span><span class="p">,</span> <span class="nc">PageController</span><span class="p">,</span> <span class="ss">:index</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="c1"># Other scopes may use custom stacks.</span>
+</span><span class='line'>  <span class="c1"># scope &quot;/api&quot;, Subdomainer do</span>
+</span><span class='line'>  <span class="c1">#   pipe_through :api</span>
+</span><span class='line'>  <span class="c1"># end</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>This fixes the error and now both <a href="http://subdomainer.dev:4000">http://subdomainer.dev:4000</a> and <a href="http://foo.subdomainer.dev:4000">http://foo.subdomainer.dev:4000</a> work as before.</p>
+
+<p>We want the subdomain pages to route somewhere else though - we can simply modify the <code>scope</code> block in the new router to point to a different controller by changing it to:</p>
+
+<figure class='code'> <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='elixir'><span class='line'>  <span class="n">scope</span> <span class="s2">&quot;/&quot;</span><span class="p">,</span> <span class="nc">Subdomainer.Subdomain</span> <span class="k">do</span>
+</span><span class='line'>    <span class="n">pipe_through</span> <span class="ss">:browser</span> <span class="c1"># Use the default browser stack</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="n">get</span> <span class="s2">&quot;/&quot;</span><span class="p">,</span> <span class="nc">PageController</span><span class="p">,</span> <span class="ss">:index</span>
+</span><span class='line'>  <span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>This will error until you create the required controller, so create <code>web/controllers/subdomain/page_controller.ex</code>:</p>
+
+<figure class='code'> <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+</pre></td><td class='code'><pre><code class='elixir'><span class='line'><span class="kd">defmodule</span> <span class="nc">Subdomainer.Subdomain.PageController</span> <span class="k">do</span>
+</span><span class='line'>  <span class="kn">use</span> <span class="nc">Subdomainer.Web</span><span class="p">,</span> <span class="ss">:controller</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="kd">def</span> <span class="n">index</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="n">_params</span><span class="p">)</span> <span class="k">do</span>
+</span><span class='line'>    <span class="n">text</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="s2">&quot;Subdomain home page&quot;</span><span class="p">)</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>You will note that <code>PageController</code> has been used as the name both times. This name is not important, it just needs to match the path from the <code>scope</code> block in the router.</p>
+
+<p>This will work, but you will probably see the following error in your terminal:</p>
+
+<blockquote><p>(exit) an exception was raised: ** (Plug.Conn.AlreadySentError) the response was already sent</p></blockquote>
+
+<p>This is simple to fix - we just need to prevent additional plugs from running if a subdomain is found modify <code>lib/subdomainer/plugs/subdomain.ex</code> to include a call to <a href="http://hexdocs.pm/plug/0.14.0/Plug.Conn.html#halt/1">Plug.Conn.halt/1</a>:</p>
+
+<figure class='code'> <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+</pre></td><td class='code'><pre><code class='elixir'><span class='line'>  <span class="kd">def</span> <span class="n">call</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="n">router</span><span class="p">)</span> <span class="k">do</span>
+</span><span class='line'>    <span class="k">case</span> <span class="n">get_subdomain</span><span class="p">(</span><span class="n">conn</span><span class="p">.</span><span class="n">host</span><span class="p">)</span> <span class="k">do</span>
+</span><span class='line'>      <span class="n">subdomain</span> <span class="ow">when</span> <span class="n">byte_size</span><span class="p">(</span><span class="n">subdomain</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="p">-&gt;</span>
+</span><span class='line'>        <span class="n">conn</span>
+</span><span class='line'>        <span class="o">|&gt;</span> <span class="n">router</span><span class="p">.</span><span class="n">call</span><span class="p">(</span><span class="n">router</span><span class="p">.</span><span class="n">init</span><span class="p">({}))</span>
+</span><span class='line'>        <span class="o">|&gt;</span> <span class="n">halt</span>
+</span><span class='line'>      <span class="bp">_</span> <span class="p">-&gt;</span> <span class="n">conn</span>
+</span><span class='line'>    <span class="k">end</span>
+</span><span class='line'>  <span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h2>Customize response based on subdomain</h2>
+
+<p>The last thing to do for this is to customize the response based on the which subdomain has been visited. To do this, we will add it to the <code>private</code> storage that exists in a <code>Plug.Conn</code> which you can read about <a href="http://hexdocs.pm/plug/Plug.Conn.html#put_private/3">in the Plug docs</a></p>
+
+<p>We will do this in the <code>Subdomainer.Router</code> module where we did the initial check to see if a subdomain exists by modifying the <code>call</code> function:</p>
+
+<figure class='code'> <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+</pre></td><td class='code'><pre><code class='elixir'><span class='line'>  <span class="kd">def</span> <span class="n">call</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="n">opts</span><span class="p">)</span> <span class="k">do</span>
+</span><span class='line'>    <span class="k">case</span> <span class="n">get_subdomain</span><span class="p">(</span><span class="n">conn</span><span class="p">.</span><span class="n">host</span><span class="p">)</span> <span class="k">do</span>
+</span><span class='line'>      <span class="n">subdomain</span> <span class="ow">when</span> <span class="n">byte_size</span><span class="p">(</span><span class="n">subdomain</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="p">-&gt;</span>
+</span><span class='line'>        <span class="n">conn</span>
+</span><span class='line'>        <span class="o">|&gt;</span> <span class="n">put_private</span><span class="p">(</span><span class="ss">:subdomain</span><span class="p">,</span> <span class="n">subdomain</span><span class="p">)</span>
+</span><span class='line'>        <span class="o">|&gt;</span> <span class="n">router</span><span class="p">.</span><span class="n">call</span><span class="p">(</span><span class="n">router</span><span class="p">.</span><span class="n">init</span><span class="p">({}))</span>
+</span><span class='line'>        <span class="o">|&gt;</span> <span class="n">halt</span>
+</span><span class='line'>      <span class="bp">_</span> <span class="p">-&gt;</span> <span class="n">conn</span>
+</span><span class='line'>    <span class="k">end</span>
+</span><span class='line'>  <span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>We can then retrieve this value in the index action of our <code>Subdomainer.Subdomain.PageController</code> like so:</p>
+
+<figure class='code'> <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='elixir'><span class='line'>  <span class="kd">def</span> <span class="n">index</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="n">_params</span><span class="p">)</span> <span class="k">do</span>
+</span><span class='line'>    <span class="n">text</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="s2">&quot;Subdomain home page for </span><span class="si">#{</span><span class="n">conn</span><span class="p">.</span><span class="n">private</span><span class="p">[</span><span class="ss">:subdomain</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span class='line'>  <span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>And that&#8217;s it! All of the following pages should work and show the correct page <a href="http://subdomainer.dev:4000">http://subdomainer.dev:4000</a>, <a href="http://foo.subdomainer.dev:4000">http://foo.subdomainer.dev:4000</a> and <a href="http://bar.subdomainer.dev:4000">http://bar.subdomainer.dev:4000</a></p>
+
+<p>From here you can extend this to the needs your app. One common task for an application with this feature is to lookup an application from your database based on the subdomain provided and show a 404 if one is not found. Since you know by the time the <code>Subdomainer.SubdomainRouter</code> is reached in the request, the subdomain will be set, you could add a <code>plug</code> to the <code>pipeline</code> to perform this check before the controller action is reached.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Writing Your First Pebble Watchface]]></title>
+    <link href="http://Gazler.github.com/blog/2013/01/30/writing-your-first-pebble-watchface/"/>
+    <updated>2013-01-30T19:26:00+00:00</updated>
+    <id>http://Gazler.github.com/blog/2013/01/30/writing-your-first-pebble-watchface</id>
+    <content type="html"><![CDATA[<p><strong>Please note that this post was written when I first got my hands on the SDK and some things may have changed since then.</strong></p>
+
+<p>So, you just got your hands on the pebble SDK and are looking to write yourself a watch face?  This post will introduce the creation of a watch face from the prototyping stage to packaging it up and running it on your device.  The watch face I will be using for this tutorial is the &#8220;Times Square&#8221; watch face - the first one I wrote the day I got my hands.  It is based off of the <a href="http://www.tokyoflash.com/en/watch_museum/pimp/pimpinainteasyipblack/">Pimp - Pimpin Ain&#8217;t Easy</a> which I used as my main watch for about 5 or 6 years until I lost it this year.  :(  The watchface took about 2 hours to create from installing the SDK to getting it on my wrist.</p>
+
+<h2>Repository</h2>
+
+<p>The repository is available at <a href="https://github.com/gazler/pebble-times-square">Times Square on Github</a></p>
+
+<!-- more -->
+
+
+<h2>Prototyping</h2>
+
+<p>At the time of writing, there is currently no emulator for pebble.  This makes writing the application with the SDK a case of; writing some code, compiling it, starting your web server, downloading it on your pebble, checking it out, repeat.  This is a fairly slow process which becomes tedious when you are checking if something should be one pixel higher or lower.  For this reason, I wrote a quick prototype of my watch in JavaScript.  The reason for using JavaScript is using canvas, you can quickly simulate the type of functions available in the pebble API.</p>
+
+<p>The HTML structure of my page looks fairly standard, the pebble runs at a resolution of 144x168 and defaults to a black background.</p>
+
+<figure class='code'><figcaption><span>index.html </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+</pre></td><td class='code'><pre><code class='html'><span class='line'><span class="cp">&lt;!DOCTYPE HTML&gt;</span>
+</span><span class='line'><span class="nt">&lt;html&gt;</span>
+</span><span class='line'>  <span class="nt">&lt;head&gt;</span>
+</span><span class='line'>  <span class="nt">&lt;/head&gt;</span>
+</span><span class='line'>  <span class="nt">&lt;body&gt;</span>
+</span><span class='line'>    <span class="nt">&lt;canvas</span> <span class="na">id=</span><span class="s">&quot;canvas&quot;</span> <span class="na">width=</span><span class="s">&quot;144&quot;</span> <span class="na">height=</span><span class="s">&quot;168&quot;</span> <span class="na">style=</span><span class="s">&quot;background: #000000;&quot;</span><span class="nt">&gt;&lt;/canvas&gt;</span>
+</span><span class='line'>  <span class="nt">&lt;/body&gt;</span>
+</span><span class='line'><span class="nt">&lt;/html&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The javascript is as follows, I have commented the code where approrpriate:</p>
+
+<figure class='code'><figcaption><span>index.html </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+<span class='line-number'>43</span>
+<span class='line-number'>44</span>
+<span class='line-number'>45</span>
+<span class='line-number'>46</span>
+<span class='line-number'>47</span>
+<span class='line-number'>48</span>
+<span class='line-number'>49</span>
+<span class='line-number'>50</span>
+<span class='line-number'>51</span>
+<span class='line-number'>52</span>
+<span class='line-number'>53</span>
+<span class='line-number'>54</span>
+<span class='line-number'>55</span>
+<span class='line-number'>56</span>
+<span class='line-number'>57</span>
+<span class='line-number'>58</span>
+<span class='line-number'>59</span>
+<span class='line-number'>60</span>
+<span class='line-number'>61</span>
+<span class='line-number'>62</span>
+<span class='line-number'>63</span>
+<span class='line-number'>64</span>
+<span class='line-number'>65</span>
+<span class='line-number'>66</span>
+<span class='line-number'>67</span>
+<span class='line-number'>68</span>
+<span class='line-number'>69</span>
+<span class='line-number'>70</span>
+<span class='line-number'>71</span>
+<span class='line-number'>72</span>
+<span class='line-number'>73</span>
+<span class='line-number'>74</span>
+<span class='line-number'>75</span>
+<span class='line-number'>76</span>
+<span class='line-number'>77</span>
+<span class='line-number'>78</span>
+<span class='line-number'>79</span>
+<span class='line-number'>80</span>
+<span class='line-number'>81</span>
+<span class='line-number'>82</span>
+<span class='line-number'>83</span>
+<span class='line-number'>84</span>
+</pre></td><td class='code'><pre><code class='javascript'><span class='line'>  <span class="cm">/* These will be converted to CONSTANTS in the C code, so keeping them</span>
+</span><span class='line'><span class="cm">     uppercase and outside of the main block makes it easiest to port */</span>
+</span><span class='line'>  <span class="kd">var</span> <span class="nx">CELL_WIDTH</span> <span class="o">=</span> <span class="mi">8</span><span class="p">;</span>
+</span><span class='line'>  <span class="kd">var</span> <span class="nx">CELL_HEIGHT</span> <span class="o">=</span> <span class="mi">8</span><span class="p">;</span>
+</span><span class='line'>  <span class="kd">var</span> <span class="nx">CELL_PADDING_TOP</span> <span class="o">=</span> <span class="mi">5</span><span class="p">;</span>
+</span><span class='line'>  <span class="kd">var</span> <span class="nx">CELL_PADDING_RIGHT</span> <span class="o">=</span> <span class="mi">5</span><span class="p">;</span>
+</span><span class='line'>  <span class="kd">var</span> <span class="nx">LEFT_OFFSET</span> <span class="o">=</span> <span class="mi">33</span><span class="p">;</span>
+</span><span class='line'>  <span class="kd">var</span> <span class="nx">TOP_OFFSET</span> <span class="o">=</span> <span class="mi">10</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'>  <span class="cm">/* This function will return a GRect in the C implementation which provides</span>
+</span><span class='line'><span class="cm">     the location of on of the squares that is used to indicate the time. */</span>
+</span><span class='line'>  <span class="kd">function</span> <span class="nx">cell_location</span><span class="p">(</span><span class="nx">row</span><span class="p">,</span><span class="nx">col</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>    <span class="k">return</span> <span class="p">[</span>
+</span><span class='line'>      <span class="p">(</span><span class="nx">row</span> <span class="o">*</span> <span class="p">(</span><span class="nx">CELL_WIDTH</span> <span class="o">+</span> <span class="nx">CELL_PADDING_RIGHT</span><span class="p">))</span> <span class="o">+</span> <span class="nx">LEFT_OFFSET</span><span class="p">,</span>
+</span><span class='line'>      <span class="p">(</span><span class="nx">col</span><span class="o">*</span> <span class="p">(</span><span class="nx">CELL_HEIGHT</span> <span class="o">+</span> <span class="nx">CELL_PADDING_TOP</span><span class="p">))</span> <span class="o">+</span> <span class="nx">TOP_OFFSET</span><span class="p">,</span>
+</span><span class='line'>      <span class="nx">CELL_WIDTH</span><span class="p">,</span>
+</span><span class='line'>      <span class="nx">CELL_HEIGHT</span>
+</span><span class='line'>    <span class="p">];</span>
+</span><span class='line'>  <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="cm">/* Get the canvas so we can draw to it */</span>
+</span><span class='line'>  <span class="kd">var</span> <span class="nx">img</span> <span class="o">=</span> <span class="nb">document</span><span class="p">.</span><span class="nx">getElementById</span><span class="p">(</span><span class="s1">&#39;canvas&#39;</span><span class="p">).</span><span class="nx">getContext</span><span class="p">(</span><span class="s1">&#39;2d&#39;</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="cm">/* This will roughly translate to how we get time in the C version the time</span>
+</span><span class='line'><span class="cm">     doesn&#39;t need to be the current time as we know how this should look */</span>
+</span><span class='line'>  <span class="kd">var</span> <span class="nx">t</span> <span class="o">=</span> <span class="p">{</span>
+</span><span class='line'>    <span class="nx">tm_hour</span><span class="o">:</span> <span class="mi">10</span><span class="p">,</span>
+</span><span class='line'>    <span class="nx">tm_min</span><span class="o">:</span> <span class="mi">57</span>
+</span><span class='line'>  <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="cm">/* This is the main function that is called at the specified interval - in</span>
+</span><span class='line'><span class="cm">     our case this will be called once every minute on the watch. */</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="kd">function</span> <span class="nx">display_layer_update_callback</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>    <span class="cm">/* Empty the canvas */</span>
+</span><span class='line'>    <span class="nx">img</span><span class="p">.</span><span class="nx">clearRect</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">144</span><span class="p">,</span> <span class="mi">168</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="nx">img</span><span class="p">.</span><span class="nx">fillStyle</span> <span class="o">=</span> <span class="s2">&quot;#FFFFFF&quot;</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="kd">var</span> <span class="nx">minutes</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span><span class='line'>    <span class="kd">var</span> <span class="nx">col</span><span class="p">,</span> <span class="nx">row</span><span class="p">,</span> <span class="nx">height</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="cm">/* These loops are responsible for determining which cells to display.</span>
+</span><span class='line'><span class="cm">       It should be fairly trivial to loop through.  */</span>
+</span><span class='line'>    <span class="k">for</span> <span class="p">(</span><span class="nx">col</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="nx">col</span> <span class="o">&lt;</span> <span class="mi">12</span><span class="p">;</span> <span class="nx">col</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>      <span class="k">for</span> <span class="p">(</span><span class="nx">row</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="nx">row</span> <span class="o">&lt;</span> <span class="mi">6</span><span class="p">;</span> <span class="nx">row</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>        <span class="nx">height</span> <span class="o">=</span> <span class="nx">col</span><span class="p">;</span>
+</span><span class='line'>        <span class="cm">/* Hour mode */</span>
+</span><span class='line'>        <span class="k">if</span> <span class="p">(</span><span class="nx">row</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>          <span class="k">if</span> <span class="p">(</span><span class="mi">12</span> <span class="o">-</span> <span class="nx">col</span> <span class="o">&gt;</span> <span class="nx">t</span><span class="p">.</span><span class="nx">tm_hour</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>            <span class="k">continue</span><span class="p">;</span>
+</span><span class='line'>          <span class="p">}</span>
+</span><span class='line'>        <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+</span><span class='line'>            <span class="k">if</span> <span class="p">(</span><span class="nx">minutes</span><span class="o">++</span> <span class="o">&lt;</span> <span class="nx">t</span><span class="p">.</span><span class="nx">tm_min</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>              <span class="nx">height</span> <span class="o">=</span> <span class="p">(</span><span class="mi">11</span> <span class="o">-</span> <span class="nx">col</span><span class="p">);</span>
+</span><span class='line'>            <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+</span><span class='line'>              <span class="k">continue</span><span class="p">;</span>
+</span><span class='line'>            <span class="p">}</span>
+</span><span class='line'>        <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="kd">var</span> <span class="nx">a</span> <span class="o">=</span> <span class="nx">cell_location</span><span class="p">(</span><span class="nx">row</span><span class="p">,</span> <span class="nx">height</span><span class="p">);</span>
+</span><span class='line'>        <span class="nx">img</span><span class="p">.</span><span class="nx">fillRect</span><span class="p">(</span> <span class="nx">a</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nx">a</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="nx">a</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="nx">a</span><span class="p">[</span><span class="mi">3</span><span class="p">]);</span>
+</span><span class='line'>      <span class="p">}</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'>  <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'>  <span class="cm">/* Not quite all the correct logic, but it covers the minutes ticking over</span>
+</span><span class='line'><span class="cm">     which is enough for our needs */</span>
+</span><span class='line'>  <span class="kd">function</span> <span class="nx">handle_minute_tick</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>    <span class="nx">t</span><span class="p">.</span><span class="nx">tm_min</span><span class="o">++</span><span class="p">;</span>
+</span><span class='line'>    <span class="k">if</span> <span class="p">(</span><span class="nx">t</span><span class="p">.</span><span class="nx">tm_min</span> <span class="o">==</span> <span class="mi">60</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>      <span class="nx">t</span><span class="p">.</span><span class="nx">tm_min</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span><span class='line'>      <span class="nx">t</span><span class="p">.</span><span class="nx">tm_hour</span><span class="o">++</span><span class="p">;</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'>    <span class="nx">display_layer_update_callback</span><span class="p">();</span>
+</span><span class='line'>  <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="cm">/* Let&#39;s make sure this gets triggered straight away */</span>
+</span><span class='line'>  <span class="nx">handle_minute_tick</span><span class="p">();</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="cm">/* We will call the minute function every second to prevent waiting */</span>
+</span><span class='line'>  <span class="nx">setInterval</span><span class="p">(</span><span class="nx">handle_minute_tick</span><span class="p">,</span> <span class="mi">1000</span><span class="p">);</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The above code creates the following:</p>
+
+<p><img src="http://Gazler.github.com/images/pimp.gif"></p>
+
+<h2>Porting to C</h2>
+
+<p>You are now ready to port this code to C.  This is a fairly straight forward port.  First off you will want to create your watch face using the template provided.</p>
+
+<pre><code>./tools/create_pebble_project.py &lt;path-to&gt;/sdk/ pimp
+</code></pre>
+
+<p>You should see the following output:</p>
+
+<pre><code>Creating project here:
+
+  /home/gazler/development/pebble/pebble-sdk-hb001/pimp
+
+Now run:
+
+  cd pimp
+  ./waf configure
+  ./waf build
+</code></pre>
+
+<p>Run the commands as instructed.  When finished, open the file &#8220;src/pimp.c&#8221; in your favourite text editor (vim) and you will get the following code:</p>
+
+<figure class='code'><figcaption><span>pimp.c </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+</pre></td><td class='code'><pre><code class='c'><span class='line'><span class="cp">#include &quot;pebble_os.h&quot; #include &quot;pebble_app.h&quot;</span>
+</span><span class='line'><span class="cp">#include &quot;pebble_fonts.h&quot;</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">PBL_APP_INFO_SIMPLE</span><span class="p">(</span><span class="s">&quot;Template App&quot;</span><span class="p">,</span> <span class="s">&quot;Your Company&quot;</span><span class="p">,</span> <span class="mi">1</span> <span class="cm">/* App version */</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">Window</span> <span class="n">window</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="kt">void</span> <span class="nf">handle_init</span><span class="p">(</span><span class="n">AppContextRef</span> <span class="n">ctx</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>  <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="n">ctx</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="n">window_init</span><span class="p">(</span><span class="o">&amp;</span><span class="n">window</span><span class="p">,</span> <span class="s">&quot;Window Name&quot;</span><span class="p">);</span>
+</span><span class='line'>  <span class="n">window_stack_push</span><span class="p">(</span><span class="o">&amp;</span><span class="n">window</span><span class="p">,</span> <span class="nb">true</span> <span class="cm">/* Animated */</span><span class="p">);</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="kt">void</span> <span class="nf">pbl_main</span><span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="n">params</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>  <span class="n">PebbleAppHandlers</span> <span class="n">handlers</span> <span class="o">=</span> <span class="p">{</span>
+</span><span class='line'>    <span class="p">.</span><span class="n">init_handler</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">handle_init</span>
+</span><span class='line'>  <span class="p">};</span>
+</span><span class='line'>  <span class="n">app_event_loop</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">handlers</span><span class="p">);</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>This is all you need, you can get this on your pebble now, but it won&#8217;t be that useful to you, it won&#8217;t event display the time!  Here is the full source code for the watch face.  The comments explain what is happening.</p>
+
+<figure class='code'><figcaption><span>pimp.c </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+<span class='line-number'>43</span>
+<span class='line-number'>44</span>
+<span class='line-number'>45</span>
+<span class='line-number'>46</span>
+<span class='line-number'>47</span>
+<span class='line-number'>48</span>
+<span class='line-number'>49</span>
+<span class='line-number'>50</span>
+<span class='line-number'>51</span>
+<span class='line-number'>52</span>
+<span class='line-number'>53</span>
+<span class='line-number'>54</span>
+<span class='line-number'>55</span>
+<span class='line-number'>56</span>
+<span class='line-number'>57</span>
+<span class='line-number'>58</span>
+<span class='line-number'>59</span>
+<span class='line-number'>60</span>
+<span class='line-number'>61</span>
+<span class='line-number'>62</span>
+<span class='line-number'>63</span>
+<span class='line-number'>64</span>
+<span class='line-number'>65</span>
+<span class='line-number'>66</span>
+<span class='line-number'>67</span>
+<span class='line-number'>68</span>
+<span class='line-number'>69</span>
+<span class='line-number'>70</span>
+<span class='line-number'>71</span>
+<span class='line-number'>72</span>
+<span class='line-number'>73</span>
+<span class='line-number'>74</span>
+<span class='line-number'>75</span>
+<span class='line-number'>76</span>
+<span class='line-number'>77</span>
+<span class='line-number'>78</span>
+<span class='line-number'>79</span>
+<span class='line-number'>80</span>
+<span class='line-number'>81</span>
+<span class='line-number'>82</span>
+<span class='line-number'>83</span>
+<span class='line-number'>84</span>
+<span class='line-number'>85</span>
+<span class='line-number'>86</span>
+<span class='line-number'>87</span>
+<span class='line-number'>88</span>
+<span class='line-number'>89</span>
+<span class='line-number'>90</span>
+<span class='line-number'>91</span>
+<span class='line-number'>92</span>
+<span class='line-number'>93</span>
+<span class='line-number'>94</span>
+<span class='line-number'>95</span>
+<span class='line-number'>96</span>
+<span class='line-number'>97</span>
+<span class='line-number'>98</span>
+<span class='line-number'>99</span>
+<span class='line-number'>100</span>
+<span class='line-number'>101</span>
+<span class='line-number'>102</span>
+<span class='line-number'>103</span>
+<span class='line-number'>104</span>
+<span class='line-number'>105</span>
+<span class='line-number'>106</span>
+<span class='line-number'>107</span>
+<span class='line-number'>108</span>
+<span class='line-number'>109</span>
+<span class='line-number'>110</span>
+<span class='line-number'>111</span>
+<span class='line-number'>112</span>
+<span class='line-number'>113</span>
+<span class='line-number'>114</span>
+<span class='line-number'>115</span>
+<span class='line-number'>116</span>
+<span class='line-number'>117</span>
+<span class='line-number'>118</span>
+</pre></td><td class='code'><pre><code class='c'><span class='line'><span class="cm">/* These are the includes required for the pebble os */</span>
+</span><span class='line'><span class="cp">#include &quot;pebble_os.h&quot;</span>
+</span><span class='line'><span class="cp">#include &quot;pebble_app.h&quot;</span>
+</span><span class='line'><span class="cp">#include &quot;pebble_fonts.h&quot;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* Set up your application.  We have left the icon empty for now but will</span>
+</span><span class='line'><span class="cm">   cover how to do that later.  Here is the method signature:</span>
+</span><span class='line'><span class="cm">   define PBL_APP_INFO(name, company, version, icon_resource_id, flags) */</span>
+</span><span class='line'><span class="n">PBL_APP_INFO</span><span class="p">(</span><span class="s">&quot;Times Square&quot;</span><span class="p">,</span> <span class="s">&quot;Gazler&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">INVALID_RESOURCE</span><span class="p">,</span> <span class="n">APP_INFO_WATCH_FACE</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">Window</span> <span class="n">window</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">Layer</span> <span class="n">display_layer</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* These are the variables we defined in our JavaScript earlier.  This will save</span>
+</span><span class='line'><span class="cm">   us trying to work out where the cells should go. */</span>
+</span><span class='line'><span class="cp">#define CELL_WIDTH 8</span>
+</span><span class='line'><span class="cp">#define CELL_HEIGHT 8</span>
+</span><span class='line'><span class="cp">#define CELL_PADDING_RIGHT 5</span>
+</span><span class='line'><span class="cp">#define CELL_PADDING_TOP 5</span>
+</span><span class='line'>
+</span><span class='line'><span class="cp">#define LEFT_OFFSET 33</span>
+</span><span class='line'><span class="cp">#define TOP_OFFSET 10</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* This is a port of the same function from the JS - it returns a GRect which</span>
+</span><span class='line'><span class="cm">   is required to draw a rectangle on the display_layer. */</span>
+</span><span class='line'><span class="n">GRect</span> <span class="nf">cell_location</span><span class="p">(</span><span class="kt">int</span> <span class="n">row</span><span class="p">,</span> <span class="kt">int</span> <span class="n">col</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>  <span class="k">return</span> <span class="n">GRect</span><span class="p">((</span><span class="n">row</span> <span class="o">*</span> <span class="p">(</span><span class="n">CELL_WIDTH</span> <span class="o">+</span> <span class="n">CELL_PADDING_RIGHT</span><span class="p">))</span> <span class="o">+</span> <span class="n">LEFT_OFFSET</span><span class="p">,(</span><span class="n">col</span> <span class="o">*</span> <span class="p">(</span><span class="n">CELL_HEIGHT</span> <span class="o">+</span> <span class="n">CELL_PADDING_TOP</span><span class="p">))</span> <span class="o">+</span> <span class="n">TOP_OFFSET</span><span class="p">,</span> <span class="n">CELL_WIDTH</span><span class="p">,</span> <span class="n">CELL_HEIGHT</span><span class="p">);</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* This is a port of the JS function. */</span>
+</span><span class='line'><span class="kt">void</span> <span class="nf">display_layer_update_callback</span><span class="p">(</span><span class="n">Layer</span> <span class="o">*</span><span class="n">me</span><span class="p">,</span> <span class="n">GContext</span><span class="o">*</span> <span class="n">ctx</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>  <span class="cm">/* We are not using the layer, this will prevent compile errors */</span>
+</span><span class='line'>  <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="n">me</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="cm">/* This is the object where we will get our time, it is the equivalent of</span>
+</span><span class='line'><span class="cm">     the t variable in our JS version */</span>
+</span><span class='line'>  <span class="n">PblTm</span> <span class="n">t</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="cm">/* Get the current time from our time object */</span>
+</span><span class='line'>  <span class="n">get_time</span><span class="p">(</span><span class="o">&amp;</span><span class="n">t</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="n">graphics_context_set_fill_color</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">GColorWhite</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="kt">int</span> <span class="n">minutes</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span><span class='line'>  <span class="kt">int</span> <span class="n">hour</span> <span class="o">=</span> <span class="n">t</span><span class="p">.</span><span class="n">tm_hour</span><span class="p">;</span>
+</span><span class='line'>  <span class="cm">/* convert 24 hours to 12 hours */</span>
+</span><span class='line'>  <span class="k">if</span> <span class="p">(</span><span class="n">hour</span> <span class="o">&gt;</span> <span class="mi">12</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>    <span class="n">hour</span> <span class="o">=</span> <span class="n">hour</span> <span class="o">-</span> <span class="mi">12</span><span class="p">;</span>
+</span><span class='line'>  <span class="p">}</span>
+</span><span class='line'>  <span class="kt">int</span> <span class="n">row</span><span class="p">,</span> <span class="n">col</span><span class="p">,</span> <span class="n">height</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">for</span> <span class="p">(</span><span class="n">col</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">col</span> <span class="o">&lt;</span> <span class="mi">12</span><span class="p">;</span> <span class="n">col</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>    <span class="k">for</span> <span class="p">(</span><span class="n">row</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">row</span> <span class="o">&lt;</span> <span class="mi">6</span><span class="p">;</span> <span class="n">row</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>      <span class="n">height</span> <span class="o">=</span> <span class="n">col</span><span class="p">;</span>
+</span><span class='line'>      <span class="cm">/* Hour mode */</span>
+</span><span class='line'>      <span class="k">if</span> <span class="p">(</span><span class="n">row</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>        <span class="k">if</span> <span class="p">(</span><span class="mi">12</span> <span class="o">-</span> <span class="n">col</span> <span class="o">&gt;</span> <span class="n">hour</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>          <span class="k">continue</span><span class="p">;</span>
+</span><span class='line'>        <span class="p">}</span>
+</span><span class='line'>      <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+</span><span class='line'>        <span class="k">if</span> <span class="p">(</span><span class="n">minutes</span><span class="o">++</span> <span class="o">&lt;</span> <span class="n">t</span><span class="p">.</span><span class="n">tm_min</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>          <span class="n">height</span> <span class="o">=</span> <span class="p">(</span><span class="mi">11</span> <span class="o">-</span> <span class="n">col</span><span class="p">);</span>
+</span><span class='line'>        <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+</span><span class='line'>          <span class="k">continue</span><span class="p">;</span>
+</span><span class='line'>        <span class="p">}</span>
+</span><span class='line'>      <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>      <span class="cm">/* This is very similar to the fillRect function in our JS version.</span>
+</span><span class='line'><span class="cm">         Here is the method signature of graphics_fill_rect</span>
+</span><span class='line'><span class="cm">         void graphics_fill_rect(GContext *ctx, GRect rect, uint8_t corner_radius, GCornerMask corner_mask); */</span>
+</span><span class='line'>      <span class="n">graphics_fill_rect</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">cell_location</span><span class="p">(</span><span class="n">j</span><span class="p">,</span> <span class="n">height</span><span class="p">),</span> <span class="mi">0</span><span class="p">,</span> <span class="n">GCornerNone</span><span class="p">);</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'>  <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="kt">void</span> <span class="nf">handle_minute_tick</span><span class="p">(</span><span class="n">AppContextRef</span> <span class="n">ctx</span><span class="p">,</span> <span class="n">PebbleTickEvent</span> <span class="o">*</span><span class="n">t</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>  <span class="cm">/* Prevent the compiler earnings as in the display callback */</span>
+</span><span class='line'>  <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="n">t</span><span class="p">;</span>
+</span><span class='line'>  <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="n">ctx</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="cm">/* Tell the application to rerender the layer */</span>
+</span><span class='line'>  <span class="n">layer_mark_dirty</span><span class="p">(</span><span class="o">&amp;</span><span class="n">display_layer</span><span class="p">);</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="kt">void</span> <span class="nf">handle_init</span><span class="p">(</span><span class="n">AppContextRef</span> <span class="n">ctx</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>  <span class="cm">/* You know the drill by know */</span>
+</span><span class='line'>  <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="n">ctx</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="n">window_init</span><span class="p">(</span><span class="o">&amp;</span><span class="n">window</span><span class="p">,</span> <span class="s">&quot;Times Square&quot;</span><span class="p">);</span>
+</span><span class='line'>  <span class="n">window_stack_push</span><span class="p">(</span><span class="o">&amp;</span><span class="n">window</span><span class="p">,</span> <span class="nb">true</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="n">window_set_background_color</span><span class="p">(</span><span class="o">&amp;</span><span class="n">window</span><span class="p">,</span> <span class="n">GColorBlack</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="cm">/* Init the layer for the display */</span>
+</span><span class='line'>  <span class="n">layer_init</span><span class="p">(</span><span class="o">&amp;</span><span class="n">display_layer</span><span class="p">,</span> <span class="n">window</span><span class="p">.</span><span class="n">layer</span><span class="p">.</span><span class="n">frame</span><span class="p">);</span>
+</span><span class='line'>  <span class="n">display_layer</span><span class="p">.</span><span class="n">update_proc</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">display_layer_update_callback</span><span class="p">;</span>
+</span><span class='line'>  <span class="n">layer_add_child</span><span class="p">(</span><span class="o">&amp;</span><span class="n">window</span><span class="p">.</span><span class="n">layer</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">display_layer</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="kt">void</span> <span class="nf">pbl_main</span><span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="n">params</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>  <span class="n">PebbleAppHandlers</span> <span class="n">handlers</span> <span class="o">=</span> <span class="p">{</span>
+</span><span class='line'>    <span class="p">.</span><span class="n">init_handler</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">handle_init</span><span class="p">,</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="cm">/* We want our watch face to update every minute instead of every second */</span>
+</span><span class='line'>    <span class="p">.</span><span class="n">tick_info</span> <span class="o">=</span> <span class="p">{</span>
+</span><span class='line'>      <span class="p">.</span><span class="n">tick_handler</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">handle_minute_tick</span><span class="p">,</span>
+</span><span class='line'>      <span class="p">.</span><span class="n">tick_units</span> <span class="o">=</span> <span class="n">MINUTE_UNIT</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'>  <span class="p">};</span>
+</span><span class='line'>  <span class="n">app_event_loop</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">handlers</span><span class="p">);</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h2>Getting it running</h2>
+
+<p>Run the following commands to compile the watchface for use on pebble:</p>
+
+<pre><code>./waf clean build &amp;&amp; python -m SimpleHTTPServer
+</code></pre>
+
+<p>Then visit the following url on your phone that is linked to your pebble:</p>
+
+<pre><code>http://&lt;YOUR_IP_ADDRESS&gt;:8000
+</code></pre>
+
+<p>Download the <code>.pbw</code> file and you are good to go.</p>
+
+<h2>Adding an icon</h2>
+
+<p>The final thing to do is to add the icon.  Create your icon as a 24x28 png file, using any filename you like.  Create a folder in <code>resources/src</code> called images and save your icon in there.  Then update the <code>resource_map.json</code> file in the same directory to the following.</p>
+
+<figure class='code'><figcaption><span>resource_map.json </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+</pre></td><td class='code'><pre><code class='javascript'><span class='line'><span class="p">{</span><span class="s2">&quot;friendlyVersion&quot;</span><span class="o">:</span> <span class="s2">&quot;0.0.1&quot;</span><span class="p">,</span>
+</span><span class='line'> <span class="s2">&quot;versionDefName&quot;</span><span class="o">:</span> <span class="s2">&quot;VERSION&quot;</span><span class="p">,</span>
+</span><span class='line'> <span class="s2">&quot;media&quot;</span><span class="o">:</span> <span class="p">[</span>
+</span><span class='line'>     <span class="p">{</span>
+</span><span class='line'>      <span class="s2">&quot;type&quot;</span><span class="o">:</span><span class="s2">&quot;png&quot;</span><span class="p">,</span>
+</span><span class='line'>      <span class="s2">&quot;defName&quot;</span><span class="o">:</span><span class="s2">&quot;IMAGE_MENU_ICON&quot;</span><span class="p">,</span>
+</span><span class='line'>      <span class="s2">&quot;file&quot;</span><span class="o">:</span><span class="s2">&quot;images/pimpin.png&quot;</span>
+</span><span class='line'>     <span class="p">}</span>
+</span><span class='line'>    <span class="p">]</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Package up your watch face and you&#8217;re good to go.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Writing a Demo Mode in Backbone]]></title>
+    <link href="http://Gazler.github.com/blog/2012/11/19/writing-a-demo-mode-in-backbone-by-overwriting-fetch-and-save/"/>
+    <updated>2012-11-19T18:59:00+00:00</updated>
+    <id>http://Gazler.github.com/blog/2012/11/19/writing-a-demo-mode-in-backbone-by-overwriting-fetch-and-save</id>
+    <content type="html"><![CDATA[<h2>Background</h2>
+
+<p>When writing an application in Backbone, it is highly likely that you utilize <a href="http://backbonejs.org/#Collection-fetch">fetch()</a> to retrieve data from your web server and <a href="http://backbonejs.org/#Model-save">save()</a> to store data on it.  This is exactly what we did for <a href="http://upti.lt">Uptilt</a> our entry for the Rails Rumble 2012 (the making of you can read about on <a href="http://uptiltgame.tumblr.com/">the Uptilt Blog</a>).</p>
+
+<p>One of the key issues with Uptilt being a two player game is that it needs two people to play the game.  The solution to this is to use a demo (or practice) mode.  In the case of Uptilt, this involved implementing the game rules for card comparison client-side.  We also didn&#8217;t want any interaction with the server when the practice game is in progress as the game is not recorded in the database.</p>
+
+<!-- more -->
+
+
+<h2>Overwriting fetch() and save()</h2>
+
+<p>As is the case in most Backbone applications, we have an init function defined in the namespace which starts everything off (sets up the collections and renders the first views.)</p>
+
+<figure class='code'> <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='js'><span class='line'><span class="nx">$</span><span class="p">(</span><span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>  <span class="nx">uptilt</span><span class="p">.</span><span class="nx">init</span><span class="p">({</span>
+</span><span class='line'>    <span class="nx">game_id</span><span class="o">:</span> <span class="o">&lt;%=</span><span class="err">@</span><span class="nx">game</span><span class="p">.</span><span class="nx">id</span><span class="o">%&gt;</span><span class="p">,</span>
+</span><span class='line'>    <span class="c1">//Lots of other data</span>
+</span><span class='line'>    <span class="nx">timer</span><span class="o">:</span> <span class="mi">30</span>
+</span><span class='line'>  <span class="p">});</span>
+</span><span class='line'><span class="p">});</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>This is the only code needed from the HTML to pass all the data through to the Backbone application and get things started.  The init function looks something like:</p>
+
+<figure class='code'> <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+</pre></td><td class='code'><pre><code class='js'><span class='line'><span class="nx">init</span><span class="o">:</span> <span class="kd">function</span><span class="p">(</span><span class="nx">options</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>  <span class="nx">_</span><span class="p">.</span><span class="nx">bindAll</span><span class="p">(</span><span class="k">this</span><span class="p">);</span>
+</span><span class='line'>  <span class="nx">_</span><span class="p">.</span><span class="nx">extend</span><span class="p">(</span><span class="k">this</span><span class="p">,</span> <span class="nx">Backbone</span><span class="p">.</span><span class="nx">Events</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">this</span><span class="p">.</span><span class="nx">first_card</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Uptilt</span><span class="p">.</span><span class="nx">Models</span><span class="p">.</span><span class="nx">Card</span><span class="p">(</span><span class="nx">options</span><span class="p">.</span><span class="nx">first_card</span><span class="p">);</span>
+</span><span class='line'>  <span class="k">this</span><span class="p">.</span><span class="nx">player</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Uptilt</span><span class="p">.</span><span class="nx">Models</span><span class="p">.</span><span class="nx">Player</span><span class="p">(</span><span class="nx">options</span><span class="p">.</span><span class="nx">player</span><span class="p">);</span>
+</span><span class='line'>  <span class="k">this</span><span class="p">.</span><span class="nx">opponent</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Uptilt</span><span class="p">.</span><span class="nx">Models</span><span class="p">.</span><span class="nx">Player</span><span class="p">(</span><span class="nx">options</span><span class="p">.</span><span class="nx">opponent</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="nb">window</span><span class="p">.</span><span class="nx">notifier</span><span class="p">.</span><span class="nx">subscribe</span><span class="p">(</span><span class="nx">options</span><span class="p">.</span><span class="nx">channel</span><span class="p">);</span>
+</span><span class='line'>  <span class="nb">window</span><span class="p">.</span><span class="nx">notifier</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s2">&quot;connected&quot;</span><span class="p">,</span> <span class="k">this</span><span class="p">.</span><span class="nx">startGame</span><span class="p">);</span>
+</span><span class='line'><span class="p">},</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The important points are that:</p>
+
+<ul>
+<li>There are some variables that are set to some values passed through from the HTML call to the init function</li>
+<li>The notifier (which I have <a href="http://blog.gazler.com/blog/2012/04/02/making-backbone-applications-realtime-with-pusher/">posted about before</a> will trigger the preload function when connected is called.</li>
+</ul>
+
+
+<p>Here is the startGame function:</p>
+
+<figure class='code'> <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+</pre></td><td class='code'><pre><code class='js'><span class='line'><span class="nx">startGame</span><span class="o">:</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>  <span class="k">this</span><span class="p">.</span><span class="nx">board</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Uptilt</span><span class="p">.</span><span class="nx">Views</span><span class="p">.</span><span class="nx">Board</span><span class="p">();</span>
+</span><span class='line'>  <span class="nx">$</span><span class="p">(</span><span class="s2">&quot;#main&quot;</span><span class="p">).</span><span class="nx">append</span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">board</span><span class="p">.</span><span class="nx">render</span><span class="p">().</span><span class="nx">el</span><span class="p">);</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The specifics about the internals are unimportant except for the following points:</p>
+
+<ul>
+<li>When a user makes a turn, a <code>save()</code> is called on an instance of Uptilt.Models.Turn</li>
+<li>When a new card is required a <code>fetch()</code> is called on an instance of Uptilt.Models.card and the server sends a new card to the player</li>
+</ul>
+
+
+<p> Since these are the only two interactions with the server, the game could be implemented client-side by storing the state of the game on the client (since this is a one-player mode, cheating isn&#8217;t an issue, you are only cheating yourself!)</p>
+
+<p> The first step in doing so is to call a new method instead of init when the page loads:</p>
+
+<figure class='code'> <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='js'><span class='line'><span class="nx">Uptilt</span><span class="p">.</span><span class="nx">practice</span><span class="p">({</span>
+</span><span class='line'>  <span class="nx">cards</span><span class="o">:</span> <span class="c1">//cards JSON (of 30 cards)</span>
+</span><span class='line'>  <span class="nx">player</span><span class="o">:</span> <span class="c1">//player JSON</span>
+</span><span class='line'>  <span class="nx">opponent</span><span class="o">:</span> <span class="c1">//opponent JSON</span>
+</span><span class='line'><span class="p">});</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The practice code looks like this:</p>
+
+<figure class='code'> <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+</pre></td><td class='code'><pre><code class='js'><span class='line'>  <span class="nx">practice</span><span class="o">:</span> <span class="kd">function</span><span class="p">(</span><span class="nx">options</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>    <span class="nb">window</span><span class="p">.</span><span class="nx">notifier</span><span class="p">.</span><span class="nx">subscribe</span> <span class="o">=</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{};</span>
+</span><span class='line'>    <span class="k">this</span><span class="p">.</span><span class="nx">cards</span> <span class="o">=</span> <span class="nx">options</span><span class="p">.</span><span class="nx">cards</span><span class="p">;</span>
+</span><span class='line'>    <span class="p">[</span><span class="k">this</span><span class="p">.</span><span class="nx">playerCards</span><span class="p">,</span> <span class="k">this</span><span class="p">.</span><span class="nx">opponentCards</span><span class="p">]</span> <span class="o">=</span> <span class="k">this</span><span class="p">.</span><span class="nx">shuffleCards</span><span class="p">();</span>
+</span><span class='line'>    <span class="nx">options</span><span class="p">.</span><span class="nx">first_card</span> <span class="o">=</span> <span class="k">this</span><span class="p">.</span><span class="nx">playerCards</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
+</span><span class='line'>    <span class="k">this</span><span class="p">.</span><span class="nx">practiceModels</span><span class="p">();</span>
+</span><span class='line'>    <span class="k">this</span><span class="p">.</span><span class="nx">init</span><span class="p">(</span><span class="nx">options</span><span class="p">);</span>
+</span><span class='line'>    <span class="k">this</span><span class="p">.</span><span class="nx">startGame</span><span class="p">();</span>
+</span><span class='line'>  <span class="p">},</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>You will notice that this code is responsible for:</p>
+
+<ul>
+<li>Stubbing out the notifier (No push notifications are required in a single player game)</li>
+<li>Setting up the initial card state</li>
+<li>Overriding the first_card variable that init expects.</li>
+<li>Calling init</li>
+<li>Manually calling startGame (Since the connected message on the notifier will never trigger)</li>
+</ul>
+
+
+<p> The most important method here is the practiceModels method, which looks like:</p>
+
+<figure class='code'> <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+</pre></td><td class='code'><pre><code class='js'><span class='line'><span class="nx">practiceModels</span><span class="o">:</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>  <span class="kd">var</span> <span class="nx">self</span> <span class="o">=</span> <span class="k">this</span><span class="p">;</span>
+</span><span class='line'>  <span class="nx">Uptilt</span><span class="p">.</span><span class="nx">Models</span><span class="p">.</span><span class="nx">Turn</span> <span class="o">=</span> <span class="nx">Backbone</span><span class="p">.</span><span class="nx">Model</span><span class="p">.</span><span class="nx">extend</span><span class="p">({</span>
+</span><span class='line'>    <span class="nx">save</span><span class="o">:</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>      <span class="nx">self</span><span class="p">.</span><span class="nx">determineOutcome</span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">get</span><span class="p">(</span><span class="s2">&quot;move&quot;</span><span class="p">).</span><span class="nx">rule_key</span><span class="p">);</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'>  <span class="p">});</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="nx">Uptilt</span><span class="p">.</span><span class="nx">Models</span><span class="p">.</span><span class="nx">Card</span> <span class="o">=</span> <span class="nx">Backbone</span><span class="p">.</span><span class="nx">Model</span><span class="p">.</span><span class="nx">extend</span><span class="p">({</span>
+</span><span class='line'>    <span class="nx">fetch</span><span class="o">:</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>      <span class="k">this</span><span class="p">.</span><span class="nx">attributes</span> <span class="o">=</span> <span class="nx">self</span><span class="p">.</span><span class="nx">playerCards</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
+</span><span class='line'>      <span class="k">this</span><span class="p">.</span><span class="nx">trigger</span><span class="p">(</span><span class="s2">&quot;change&quot;</span><span class="p">);</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'>  <span class="p">});</span>
+</span><span class='line'><span class="p">},</span>
+</span><span class='line'>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p> This function overrides the save method of Turn (that is what is called when a user clicks on their chosen attribute in the game of Uptilt) and instead calls determineOutcome (which is not shown but it is where the game logic is called client-side) emulating the code that is called on the server in a &#8220;real&#8221; game of Uptilt.</p>
+
+<p> It also overrides the fetch method of Card.  In Uptilt, a player can only see their current card to prevent a user being able to work out the cards that the opponent has in their hand.  In the case of the client, this is simply the card at the top of the players pile.  Triggering the &#8220;change&#8221; event is important as that is what the views are listening to and they will re-render accordingly.</p>
+
+<h2>The Results</h2>
+
+<p>That is all I had to do to make the game playable on the client side.  The entire commit was about 100 lines of JavaScript and not a single view had to be modified.  This same technique could be used to implement a tutorial style introduction to your site with ease.</p>
+
+<p>Does it work?  Why not try out a <a href="http://upti.lt/decks/3/practice">practice game</a> of Uptilt and see for yourself.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[How Travis Is Teaching Me To Cook]]></title>
+    <link href="http://Gazler.github.com/blog/2012/04/24/how-travis-is-teaching-me-to-cook/"/>
+    <updated>2012-04-24T12:39:00+01:00</updated>
+    <id>http://Gazler.github.com/blog/2012/04/24/how-travis-is-teaching-me-to-cook</id>
+    <content type="html"><![CDATA[<p><strong>Note: the contents of this post are heavily influenced by <a href="https://github.com/michaelklishin/sous-chef">Sous Chef</a>. </strong></p>
+
+<p>Over the past couple of weeks I have been working with a mobile developer to help integrate with one of my applications.  We plan on using OAuth (Which I have blogged about <a href="http://blog.gazler.com/blog/2012/01/08/oauth2-provider-with-rails/">here</a>) to authenticate the mobile application with the server.  The problem with this is that the rails application is still in development, and the mobile developer doesn&#8217;t have the code running.  I don&#8217;t want them to worry about dependencies, setting up the database or setting up git access via ssh keys, I just want him to be able to run the server.</p>
+
+<p>This is where <a href="http://vagrantup.com/">Vagrant</a> comes in.  Vagrant allows you to create Virtual Machines (using VirtualBox) programatically.  This means that I can create a VM of my application, hand it to anothe developer and let them get on with it.  Vagrant can utilize <a href="http://www.opscode.com/chef/">Chef</a> to build the machine.  Chef is an integration framework that makes it easy to deploy servers, which it does using cookbooks and recipes.  A recipe is for installing a particular piece of software and a cookbook is a collection of recipes.  There are plenty of cookbooks available online, I opted to use a set of cookbooks developed by <a href="http://travis-ci.org">Travis CI</a> that are available <a href="https://github.com/travis-ci/travis-cookbooks">on GitHub</a></p>
+
+<h2>Getting Started</h2>
+
+<p>The first thing to do is install Vagrant.  I chose to use the gem by doing:</p>
+
+<pre><code>gem install vagrant
+</code></pre>
+
+<p>However there are binaries available on their <a href="http://downloads.vagrantup.com/tags/v1.0.2">downloads</a> page.</p>
+
+<!-- more -->
+
+
+<p>The next step is to create a folder for vagrant to sit in and intialize vagrant.</p>
+
+<pre><code>mkdir my_application &amp;&amp; cd my_application
+vagrant init
+</code></pre>
+
+<p>This will create a Vagrantfile in your repository that should look like this:</p>
+
+<figure class='code'><figcaption><span>Vagrantfile  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="c1"># -*- mode: ruby -*-</span>
+</span><span class='line'><span class="c1"># vi: set ft=ruby :</span>
+</span><span class='line'>
+</span><span class='line'><span class="no">Vagrant</span><span class="o">::</span><span class="no">Config</span><span class="o">.</span><span class="n">run</span> <span class="k">do</span> <span class="o">|</span><span class="n">config</span><span class="o">|</span>
+</span><span class='line'>  <span class="n">config</span><span class="o">.</span><span class="n">vm</span><span class="o">.</span><span class="n">box</span> <span class="o">=</span> <span class="s2">&quot;base&quot;</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="c1">#lots of comments!</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The first two lines tell your editor what syntax highlighting to use, which is ruby.  We&#8217;re going to make some changes inside the config block, so remove the <code>config.vm.box = "base"</code> line.  The next step is to specify the &#8220;box&#8221; that is, the machine we want to boot from.  In this case I am using Ubuntu 11.04 provided by Travis CI.</p>
+
+<figure class='code'><figcaption><span>Vagrantfile  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="no">Vagrant</span><span class="o">::</span><span class="no">Config</span><span class="o">.</span><span class="n">run</span> <span class="k">do</span> <span class="o">|</span><span class="n">config</span><span class="o">|</span>
+</span><span class='line'>
+</span><span class='line'>   <span class="n">config</span><span class="o">.</span><span class="n">vm</span><span class="o">.</span><span class="n">box</span>     <span class="o">=</span> <span class="s2">&quot;natty32_base&quot;</span>
+</span><span class='line'>   <span class="n">config</span><span class="o">.</span><span class="n">vm</span><span class="o">.</span><span class="n">box_url</span> <span class="o">=</span> <span class="s2">&quot;http://files.travis-ci.org/boxes/bases/natty32.box&quot;</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>This is all you need to start up.  If you run the command:</p>
+
+<pre><code>vagrant up
+</code></pre>
+
+<p>Then the virtual box will be started, and you can shell into it using <code>vagrant ssh</code>.</p>
+
+<h2>Cooking With Chef</h2>
+
+<p>Now that the VM is working, you could ssh in and install all the dependencies, but that isn&#8217;t really a good way of doing it.  You would have to provide build instructions to other people using the box.  Instead, Chef can be used to install software on the VM.</p>
+
+<p>First of all, clone the cookbooks from Travis CI (or somewhere else if you use other cookbooks.)</p>
+
+<pre><code>git clone git://github.com/travis-ci/travis-cookbooks.git cookbooks
+</code></pre>
+
+<p>With the cookbooks, you can now modify your Vagrantfile to install software.</p>
+
+<figure class='code'><figcaption><span>Vagrantfile  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="no">Vagrant</span><span class="o">::</span><span class="no">Config</span><span class="o">.</span><span class="n">run</span> <span class="k">do</span> <span class="o">|</span><span class="n">config</span><span class="o">|</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="n">config</span><span class="o">.</span><span class="n">vm</span><span class="o">.</span><span class="n">box</span>     <span class="o">=</span> <span class="s2">&quot;natty32_base&quot;</span>
+</span><span class='line'>    <span class="n">config</span><span class="o">.</span><span class="n">vm</span><span class="o">.</span><span class="n">box_url</span> <span class="o">=</span> <span class="s2">&quot;http://files.travis-ci.org/boxes/bases/natty32.box&quot;</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="n">config</span><span class="o">.</span><span class="n">vm</span><span class="o">.</span><span class="n">provision</span> <span class="ss">:chef_solo</span> <span class="k">do</span> <span class="o">|</span><span class="n">chef</span><span class="o">|</span>
+</span><span class='line'>      <span class="n">chef</span><span class="o">.</span><span class="n">cookbooks_path</span> <span class="o">=</span> <span class="o">[</span><span class="s2">&quot;cookbooks/ci_environment&quot;</span><span class="o">]</span>
+</span><span class='line'>      <span class="n">chef</span><span class="o">.</span><span class="n">log_level</span> <span class="o">=</span> <span class="ss">:debug</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'>      <span class="c1">#Install application dependencies - apt and build-essential are a must</span>
+</span><span class='line'>      <span class="n">chef</span><span class="o">.</span><span class="n">add_recipe</span> <span class="s2">&quot;apt&quot;</span>
+</span><span class='line'>      <span class="n">chef</span><span class="o">.</span><span class="n">add_recipe</span> <span class="s2">&quot;build-essential&quot;</span>
+</span><span class='line'>      <span class="n">chef</span><span class="o">.</span><span class="n">add_recipe</span> <span class="s2">&quot;git&quot;</span>
+</span><span class='line'>      <span class="n">chef</span><span class="o">.</span><span class="n">add_recipe</span> <span class="s2">&quot;rvm&quot;</span>
+</span><span class='line'>      <span class="n">chef</span><span class="o">.</span><span class="n">add_recipe</span> <span class="s2">&quot;sqlite&quot;</span>
+</span><span class='line'>      <span class="n">chef</span><span class="o">.</span><span class="n">json</span><span class="o">.</span><span class="n">merge!</span><span class="p">({</span>
+</span><span class='line'>                          <span class="ss">:apt</span> <span class="o">=&gt;</span> <span class="p">{</span>
+</span><span class='line'>                            <span class="ss">:mirror</span> <span class="o">=&gt;</span> <span class="ss">:ru</span>
+</span><span class='line'>                          <span class="p">},</span>
+</span><span class='line'>                          <span class="ss">:rvm</span> <span class="o">=&gt;</span> <span class="p">{</span>
+</span><span class='line'>                            <span class="ss">:rubies</span>  <span class="o">=&gt;</span> <span class="o">[</span><span class="p">{</span> <span class="ss">:name</span> <span class="o">=&gt;</span> <span class="s2">&quot;1.9.2&quot;</span> <span class="p">}</span><span class="o">]</span>
+</span><span class='line'>                          <span class="p">},</span>
+</span><span class='line'>                          <span class="ss">:travis_build_environment</span> <span class="o">=&gt;</span> <span class="p">{</span>
+</span><span class='line'>                            <span class="ss">:user</span> <span class="o">=&gt;</span> <span class="s2">&quot;vagrant&quot;</span><span class="p">,</span>
+</span><span class='line'>                            <span class="ss">:group</span> <span class="o">=&gt;</span> <span class="s2">&quot;vagrant&quot;</span>
+</span><span class='line'>                          <span class="p">}</span>
+</span><span class='line'>                       <span class="p">})</span>
+</span><span class='line'>    <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>You can call <code>chef.add_recipe</code> to install all of your application dependencies, you can check the cookbooks/ci_environment folder to see which recipes are available.  The last line in the config (<code>chef.json.merge</code>) contains the configuration used by the recipes (<a href="http://wiki.opscode.com/display/chef/Attributes">read more here</a>.)</p>
+
+<p>If you run <code>vagrant provision</code> then it will install all your dependencies (including ruby 1.9.2 as specified in the json block.)</p>
+
+<p>When this finishes, you can ssh into your box by calling <code>vagrant ssh</code> and check that ruby has been installed by typing <code>ruby -v</code> and it should return 1.9.2</p>
+
+<h2>Running your application</h2>
+
+<p>It is now time to add the application to the box.  To do this, a new recipe must be created.  I would recommend creating a new folder for your cookbook.  I called mine &#8220;application_cookbook&#8221;</p>
+
+<pre><code>mkdir -p application_cookbook/main/recipes
+</code></pre>
+
+<p>&#8220;main&#8221; is the name of your recipe and &#8220;recipes&#8221; is where the recipes live.  Create a new file in recipes called &#8220;default.rb&#8221; and inside the file, put the following:</p>
+
+<figure class='code'><figcaption><span>default.rb </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+</pre></td><td class='code'><pre><code class='rb'><span class='line'><span class="n">application_dir</span> <span class="o">=</span> <span class="s2">&quot;/home/vagrant/application&quot;</span>
+</span><span class='line'><span class="c1">#install bundler</span>
+</span><span class='line'><span class="n">gem_package</span> <span class="s2">&quot;bundler&quot;</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">#update rubygems</span>
+</span><span class='line'><span class="n">execute</span> <span class="s2">&quot;gem&quot;</span> <span class="k">do</span>
+</span><span class='line'>  <span class="n">command</span> <span class="s2">&quot;gem update --system&quot;</span>
+</span><span class='line'>  <span class="n">cwd</span> <span class="n">application_dir</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">execute</span> <span class="s2">&quot;bundle&quot;</span> <span class="k">do</span>
+</span><span class='line'>  <span class="n">command</span> <span class="s2">&quot;bundle&quot;</span>
+</span><span class='line'>  <span class="n">cwd</span> <span class="n">application_dir</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">#clear and migrate the database</span>
+</span><span class='line'><span class="n">execute</span> <span class="s2">&quot;bundle&quot;</span> <span class="k">do</span>
+</span><span class='line'>  <span class="n">command</span> <span class="s2">&quot;bundle exec rake db:drop db:migrate db:seed&quot;</span>
+</span><span class='line'>  <span class="n">cwd</span> <span class="n">application_dir</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">#start the server and daemonize it</span>
+</span><span class='line'><span class="n">execute</span> <span class="s2">&quot;rails&quot;</span> <span class="k">do</span>
+</span><span class='line'>  <span class="n">command</span> <span class="s2">&quot;rails s -d&quot;</span>
+</span><span class='line'>  <span class="n">cwd</span> <span class="n">application_dir</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>This will install all the required gems and set up the database.  You may notice that we reference /home/vagrant/applicaiton, this is a folder we haven&#8217;t created yet.  To do so we need some additional changes to the Vagrantfile.</p>
+
+<figure class='code'><figcaption><span>Vagrantfile  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="no">Vagrant</span><span class="o">::</span><span class="no">Config</span><span class="o">.</span><span class="n">run</span> <span class="k">do</span> <span class="o">|</span><span class="n">config</span><span class="o">|</span>
+</span><span class='line'>  <span class="n">config</span><span class="o">.</span><span class="n">vm</span><span class="o">.</span><span class="n">provision</span> <span class="ss">:chef_solo</span> <span class="k">do</span> <span class="o">|</span><span class="n">chef</span><span class="o">|</span>
+</span><span class='line'>    <span class="c1">#Change the cookbooks_path to inclide your new recipes</span>
+</span><span class='line'>    <span class="n">chef</span><span class="o">.</span><span class="n">cookbooks_path</span> <span class="o">=</span> <span class="o">[</span><span class="s2">&quot;cookbooks/ci_environment&quot;</span><span class="p">,</span> <span class="s2">&quot;application_cookbook&quot;</span><span class="o">]</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c1">#keep all the old code here</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="c1">#Add your new recipe</span>
+</span><span class='line'>    <span class="n">chef</span><span class="o">.</span><span class="n">add_recipe</span> <span class="s2">&quot;main&quot;</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="c1">#Create a reference to your application folder</span>
+</span><span class='line'>  <span class="n">config</span><span class="o">.</span><span class="n">vm</span><span class="o">.</span><span class="n">share_folder</span> <span class="s2">&quot;application&quot;</span><span class="p">,</span> <span class="s2">&quot;application&quot;</span><span class="p">,</span> <span class="s2">&quot;application&quot;</span><span class="p">,</span> <span class="ss">:create</span> <span class="o">=&gt;</span> <span class="kp">true</span>
+</span><span class='line'>  <span class="c1">#forward requests for port 3000 to the virtual box</span>
+</span><span class='line'>  <span class="n">config</span><span class="o">.</span><span class="n">vm</span><span class="o">.</span><span class="n">forward_port</span> <span class="mi">3000</span><span class="p">,</span> <span class="mi">3000</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The final step is to move your application folder into your current directory <code>cp -r /path/to/application .</code></p>
+
+<p>You will need to reload vagrant as there are port and share folder changes.</p>
+
+<pre><code>vagrant reload
+</code></pre>
+
+<p>When everything finishes, when you navigate to <a href="http://localhost:3000">http://localhost:3000</a> then you should see your application!</p>
+
+<p>After I followed the above steps, I could zip up the folder, give it to the other developer and he was set.  He could extract the files, run <code>vagrant up</code> and access the server.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Making Backbone Applications Realtime With Pusher]]></title>
+    <link href="http://Gazler.github.com/blog/2012/04/02/making-backbone-applications-realtime-with-pusher/"/>
+    <updated>2012-04-02T09:40:00+01:00</updated>
+    <id>http://Gazler.github.com/blog/2012/04/02/making-backbone-applications-realtime-with-pusher</id>
+    <content type="html"><![CDATA[<p>Over the past few months at Powershift, we have been experimenting with the development of Single-Page Applications.  We looked at a few javascript frameworks designed for the task and ultimately decided on <a href="http://documentcloud.github.com/backbone/">Backbone.js</a>  One of the things we really like about Backbone is that it has a data-driven approach.  That is, that you can listen on an item for a specific trigger, and call an action when that trigger is called.  The most common case for this in our applications is binding a view to the &#8220;change&#8221; event of a model so that when new data comes in, it is rendered on the page.</p>
+
+<figure class='code'> <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+</pre></td><td class='code'><pre><code class='js'><span class='line'><span class="c1">//The View</span>
+</span><span class='line'><span class="nx">Application</span><span class="p">.</span><span class="nx">Views</span><span class="p">.</span><span class="nx">PostView</span> <span class="o">=</span> <span class="nx">Backbone</span><span class="p">.</span><span class="nx">View</span><span class="p">.</span><span class="nx">extend</span><span class="p">({</span>
+</span><span class='line'>  <span class="nx">initialize</span><span class="o">:</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>    <span class="k">this</span><span class="p">.</span><span class="nx">model</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s2">&quot;change&quot;</span><span class="p">,</span> <span class="k">this</span><span class="p">.</span><span class="nx">render</span><span class="p">,</span> <span class="k">this</span><span class="p">);</span>
+</span><span class='line'>  <span class="p">},</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="nx">render</span><span class="o">:</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>    <span class="nx">$</span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">el</span><span class="p">).</span><span class="nx">html</span><span class="p">(</span><span class="nx">ich</span><span class="p">.</span><span class="nx">post_template</span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">model</span><span class="p">));</span> <span class="c1">//Render the element</span>
+</span><span class='line'>  <span class="p">}</span>
+</span><span class='line'><span class="p">});</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">//The Model</span>
+</span><span class='line'><span class="nx">Application</span><span class="p">.</span><span class="nx">Models</span><span class="p">.</span><span class="nx">Post</span> <span class="o">=</span> <span class="nx">Backbone</span><span class="p">.</span><span class="nx">Model</span><span class="p">.</span><span class="nx">extend</span><span class="p">({</span>
+</span><span class='line'>  <span class="nx">url</span><span class="o">:</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>    <span class="k">return</span> <span class="s2">&quot;/posts/&quot;</span><span class="o">+</span><span class="k">this</span><span class="p">.</span><span class="nx">id</span><span class="p">;</span>
+</span><span class='line'>  <span class="p">});</span>
+</span><span class='line'><span class="p">});</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">//initialize them</span>
+</span><span class='line'><span class="kd">var</span> <span class="nx">post</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Application</span><span class="p">.</span><span class="nx">Models</span><span class="p">.</span><span class="nx">Post</span><span class="p">({</span><span class="nx">id</span><span class="o">:</span> <span class="mi">1</span><span class="p">});</span>
+</span><span class='line'><span class="kd">var</span> <span class="nx">postView</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Applications</span><span class="p">.</span><span class="nx">Views</span><span class="p">.</span><span class="nx">PostView</span><span class="p">({</span><span class="nx">model</span><span class="o">:</span> <span class="nx">post</span><span class="p">});</span>
+</span><span class='line'><span class="nx">post</span><span class="p">.</span><span class="nx">fetch</span><span class="p">();</span>
+</span><span class='line'><span class="nx">post</span><span class="p">.</span><span class="nx">save</span><span class="p">({</span><span class="nx">title</span><span class="o">:</span> <span class="s2">&quot;New Title&quot;</span><span class="p">});</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+<!-- more -->
+
+
+<p>With this in place, it means that any time our Backbone model is changed, the view will be updated to reflect that.  In this example we have used a Post view and model, but models can represent any resource.  When <code>post.fetch()</code> returns, a &#8220;change&#8221; event is triggered, this event is being listened for on the view, and when it occurs, <code>render()</code> in the view is called.  This style of event binding also means that when a save is called, the view is also re-rendered.  This all works well for a single person editing the posts, but what about if we want multiple people to be able to edit the resource, and all others to be notified?</p>
+
+<p>This is where <a href="http://pusherapp.com">Pusher</a> comes in.  Pusher is a very easy way to add realtime to your applications.  You can get up and running with a few lines of javascript and it is very simple to hook it into Backbone events.</p>
+
+<p>After including the javascript from Pusher (you can get it from their homepage after you sign up) you can create a notifier for all your notifications.  One major benefit of moving everything into one class, is that if for whatever reason, you wish to change the backend used for your notifications (if you for example, write your own one and want to use that instead of Pusher) then all the dependencies are in one place.</p>
+
+<figure class='code'> <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+</pre></td><td class='code'><pre><code class='js'><span class='line'><span class="c1">//notifier</span>
+</span><span class='line'><span class="nx">Application</span><span class="p">.</span><span class="nx">Notifier</span> <span class="o">=</span> <span class="p">(</span><span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="kd">function</span> <span class="nx">Notifier</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>    <span class="nx">_</span><span class="p">.</span><span class="nx">extend</span><span class="p">(</span><span class="k">this</span><span class="p">,</span> <span class="nx">Backbone</span><span class="p">.</span><span class="nx">Events</span><span class="p">);</span>
+</span><span class='line'>    <span class="k">this</span><span class="p">.</span><span class="nx">pusher</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Pusher</span><span class="p">(</span><span class="nx">CHANNEL_ID</span><span class="p">);</span>
+</span><span class='line'>    <span class="k">this</span><span class="p">.</span><span class="nx">channels</span> <span class="o">=</span> <span class="p">{};</span>
+</span><span class='line'>  <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="nx">Notifier</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">subscribe</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">channel</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>    <span class="kd">var</span> <span class="nx">self</span> <span class="o">=</span> <span class="k">this</span><span class="p">;</span>
+</span><span class='line'>    <span class="k">this</span><span class="p">.</span><span class="nx">channels</span><span class="p">[</span><span class="nx">channel</span><span class="p">]</span> <span class="o">=</span> <span class="k">this</span><span class="p">.</span><span class="nx">pusher</span><span class="p">.</span><span class="nx">subscribe</span><span class="p">(</span><span class="nx">channel</span><span class="p">);</span>
+</span><span class='line'>    <span class="k">this</span><span class="p">.</span><span class="nx">channels</span><span class="p">[</span><span class="nx">channel</span><span class="p">].</span><span class="nx">bind_all</span><span class="p">(</span><span class="kd">function</span><span class="p">(</span><span class="nx">event</span><span class="p">,</span> <span class="nx">data</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>      <span class="nx">self</span><span class="p">.</span><span class="nx">trigger</span><span class="p">(</span><span class="nx">event</span><span class="p">,</span> <span class="nx">data</span><span class="p">);</span>
+</span><span class='line'>    <span class="p">});</span>
+</span><span class='line'>  <span class="p">};</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">return</span> <span class="nx">Notifier</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">})();</span>
+</span><span class='line'>
+</span><span class='line'><span class="c1">//initialize</span>
+</span><span class='line'><span class="nx">Application</span><span class="p">.</span><span class="nx">notifier</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Application</span><span class="p">.</span><span class="nx">Notifier</span><span class="p">();</span>
+</span><span class='line'><span class="nx">Application</span><span class="p">.</span><span class="nx">notifier</span><span class="p">.</span><span class="nx">subscribe</span><span class="p">(</span><span class="s2">&quot;post1&quot;</span><span class="p">);</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>With this in place, any time an event happens on the &#8220;post1&#8221; channel, a backbone event will be triggered.  We can now listen to this event in the <code>initialize</code> function of the model.</p>
+
+<figure class='code'> <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+</pre></td><td class='code'><pre><code class='js'><span class='line'><span class="c1">//Application.Models.Post</span>
+</span><span class='line'><span class="nx">initialize</span><span class="o">:</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>  <span class="nx">Application</span><span class="p">.</span><span class="nx">notifier</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s2">&quot;post:change&quot;</span><span class="p">,</span> <span class="k">this</span><span class="p">.</span><span class="nx">postChanged</span><span class="p">,</span> <span class="k">this</span><span class="p">);</span>
+</span><span class='line'><span class="p">},</span>
+</span><span class='line'>
+</span><span class='line'><span class="nx">postChanged</span><span class="o">:</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>  <span class="k">this</span><span class="p">.</span><span class="nx">fetch</span><span class="p">();</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Unfortunately we can&#8217;t just call fetch when we receive a &#8220;post:change&#8221; event as the date received from Pusher is an array, and Backbone is expecting an object.  I did try to <a href="https://github.com/documentcloud/backbone/pull/1058">patch this</a> but it was not accepted, so we need to wrap the <code>fetch()</code> inside another function.</p>
+
+<p>The last thing required to hook this up is to trigger an event when the model is saved.  This depends on your backend however you can also trigger these from the Pusher dashboard on their website after you have signed in, the name of the message you want to send is &#8220;post:change&#8221;.  Using the Pusher gem and Ruby on Rails, you would do:</p>
+
+<figure class='code'> <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='js'><span class='line'><span class="nx">Pusher</span><span class="p">[</span><span class="s2">&quot;post1&quot;</span><span class="p">].</span><span class="nx">trigger</span><span class="o">!</span><span class="p">(</span><span class="s2">&quot;post:change&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Everything is now hooked up.  You will notice that if you have your application open in two browsers, when you update one, the other will automatically update.  When a &#8220;post:change&#8221; event is received from Pusher, the model is listening for it and triggers a <code>fetch()</code> which in turn triggers a <code>render()</code> on the view.</p>
+
+<p>This is just one way of doing things of course, you can also send data through with your event to prevent performing an additional <code>fetch()</code> on the server.  You can also bind the notifier to Backbone Views and Collections and perform any functions you wish when an event is received.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Adding Validations To Your Backbone Models]]></title>
+    <link href="http://Gazler.github.com/blog/2012/01/31/adding-validations-to-your-backbone-models/"/>
+    <updated>2012-01-31T21:42:00+00:00</updated>
+    <id>http://Gazler.github.com/blog/2012/01/31/adding-validations-to-your-backbone-models</id>
+    <content type="html"><![CDATA[<p><a href="http://documentcloud.github.com/backbone/">Backbone.js</a> is a JavaScript framework that gives your code a much needed structure.  This post will advise you on how to extend the framework by adding in validators.  I will assume you have atleast a basic knowledge of Backbone.</p>
+
+<h2>Source</h2>
+
+<p>The source code for this post is <a href="http://github.com/Gazler/backbone_validators">available on gitub.</a></p>
+
+<h2>The Goal</h2>
+
+<p>While Backbone does give your project structure, it does not give you the full feature set that you require to build a web application.  Many methods are deliberately stubbed out and you are encouraged to fill in the blanks to give you the desired functionality.  One such method is the <a href="http://documentcloud.github.com/backbone/#Model-validate">validate</a> method on a Backbone Model.</p>
+
+<p>The validate method is called every time <code>set</code> or <code>save</code> is called on a model.  The aim here is to override the validate method to use an object defined on the model and use this for validation.  We will also add an errors hash to the model which can be displayed to the user.</p>
+
+<!-- more -->
+
+
+<h2>Preperations</h2>
+
+<p>Validations are perfect for unit testing, you have an input and a desired output and not much in between.  I will be using Jasmine for this purpose.  The first step is to <a href="http://pivotal.github.com/jasmine/download.html">download the spec runner</a>.  You can then extract it and locate the SpecRunner.</p>
+
+<p>After downloading, delete the two files <code>PlayerSpec.js</code> and <code>SpecHelper.js</code> and create a new file <code>validator_spec.js</code>.  Then go into the src folder and delete <code>Player.js</code> and <code>Song.js</code>, you should also create a file <code>backbone_validator.js</code>.</p>
+
+<p>We will also need <a href="http://documentcloud.github.com/backbone/">Backbone.js (0.9.0)</a> and <a href="http://documentcloud.github.com/underscore/">Underscore.js</a>, put these files inside the <code>lib</code> folder.</p>
+
+<p><strong>Optionally</strong> you should include some internationalization of some sort for the error messages.  I strongly suggest <a href="https://github.com/fnando/i18n-js">i18n-js</a>.  You can download the required javascript <a href="https://github.com/fnando/i18n-js/blob/master/vendor/assets/javascripts/i18n.js">here</a>.</p>
+
+<p>Finally, the file <code>SpecRunner.html</code> needs to be modified to reference the files you created. It should look like the following:</p>
+
+<figure class='code'><figcaption><span>SpecRunner.html </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+</pre></td><td class='code'><pre><code class='html'><span class='line'><span class="nt">&lt;link</span> <span class="na">rel=</span><span class="s">&quot;shortcut icon&quot;</span> <span class="na">type=</span><span class="s">&quot;image/png&quot;</span> <span class="na">href=</span><span class="s">&quot;lib/jasmine-1.1.0.rc1/jasmine_favicon.png&quot;</span><span class="nt">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="nt">&lt;link</span> <span class="na">rel=</span><span class="s">&quot;stylesheet&quot;</span> <span class="na">type=</span><span class="s">&quot;text/css&quot;</span> <span class="na">href=</span><span class="s">&quot;lib/jasmine-1.1.0.rc1/jasmine.css&quot;</span><span class="nt">&gt;</span>
+</span><span class='line'><span class="nt">&lt;script </span><span class="na">type=</span><span class="s">&quot;text/javascript&quot;</span> <span class="na">src=</span><span class="s">&quot;lib/jasmine-1.1.0.rc1/jasmine.js&quot;</span><span class="nt">&gt;&lt;/script&gt;</span>
+</span><span class='line'><span class="nt">&lt;script </span><span class="na">type=</span><span class="s">&quot;text/javascript&quot;</span> <span class="na">src=</span><span class="s">&quot;lib/jasmine-1.1.0.rc1/jasmine-html.js&quot;</span><span class="nt">&gt;&lt;/script&gt;</span>
+</span><span class='line'><span class="nt">&lt;script </span><span class="na">type=</span><span class="s">&quot;text/javascript&quot;</span> <span class="na">src=</span><span class="s">&quot;lib/i18n.js&quot;</span><span class="nt">&gt;&lt;/script&gt;</span>
+</span><span class='line'><span class="nt">&lt;script </span><span class="na">type=</span><span class="s">&quot;text/javascript&quot;</span> <span class="na">src=</span><span class="s">&quot;lib/underscore.js&quot;</span><span class="nt">&gt;&lt;/script&gt;</span>
+</span><span class='line'><span class="nt">&lt;script </span><span class="na">type=</span><span class="s">&quot;text/javascript&quot;</span> <span class="na">src=</span><span class="s">&quot;lib/backbone.js&quot;</span><span class="nt">&gt;&lt;/script&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="c">&lt;!-- include source files here... --&gt;</span>
+</span><span class='line'><span class="nt">&lt;script </span><span class="na">type=</span><span class="s">&quot;text/javascript&quot;</span> <span class="na">src=</span><span class="s">&quot;src/backbone_validator.js&quot;</span><span class="nt">&gt;&lt;/script&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="c">&lt;!-- include spec files here... --&gt;</span>
+</span><span class='line'><span class="nt">&lt;script </span><span class="na">type=</span><span class="s">&quot;text/javascript&quot;</span> <span class="na">src=</span><span class="s">&quot;spec/validator_spec.js&quot;</span><span class="nt">&gt;&lt;/script&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h2>Getting Started</h2>
+
+<p>If you have read any Backbone tutorials, most will recommend that you namespace your application.  For this application, I am going to use <code>Gazler</code> as the namespace, you can pick whatever you like.</p>
+
+<figure class='code'><figcaption><span>src/backbone_validator.js </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+</pre></td><td class='code'><pre><code class='js'><span class='line'><span class="nx">I18n</span><span class="p">.</span><span class="nx">translations</span> <span class="o">=</span> <span class="p">{};</span>
+</span><span class='line'><span class="nx">I18n</span><span class="p">.</span><span class="nx">translations</span><span class="p">[</span><span class="s2">&quot;en&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+</span><span class='line'>  <span class="s2">&quot;errors&quot;</span><span class="o">:</span> <span class="p">{</span>
+</span><span class='line'>    <span class="s2">&quot;form&quot;</span><span class="o">:</span> <span class="p">{</span>
+</span><span class='line'>      <span class="s2">&quot;required&quot;</span><span class="o">:</span> <span class="s2">&quot;is required&quot;</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'>  <span class="p">}</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="kd">var</span> <span class="nx">Gazler</span> <span class="o">=</span> <span class="p">{};</span>
+</span><span class='line'>
+</span><span class='line'><span class="nx">Gazler</span><span class="p">.</span><span class="nx">Model</span> <span class="o">=</span> <span class="nx">Backbone</span><span class="p">.</span><span class="nx">Model</span><span class="p">.</span><span class="nx">extend</span><span class="p">({</span>
+</span><span class='line'>  <span class="nx">validates</span><span class="o">:</span> <span class="p">{},</span>
+</span><span class='line'>  <span class="nx">errors</span><span class="o">:</span> <span class="p">{},</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="nx">validate</span><span class="o">:</span> <span class="kd">function</span><span class="p">(</span><span class="nx">changedAttributes</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>    <span class="k">this</span><span class="p">.</span><span class="nx">errors</span> <span class="o">=</span> <span class="nx">Backbone</span><span class="p">.</span><span class="nx">Validate</span><span class="p">(</span><span class="k">this</span><span class="p">,</span> <span class="nx">changedAttributes</span><span class="p">);</span>
+</span><span class='line'>    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="nx">_</span><span class="p">.</span><span class="nx">isEmpty</span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">errors</span><span class="p">))</span> <span class="p">{</span>
+</span><span class='line'>      <span class="k">return</span> <span class="k">this</span><span class="p">.</span><span class="nx">errors</span><span class="p">;</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'>  <span class="p">}</span>
+</span><span class='line'><span class="p">});</span>
+</span><span class='line'>
+</span><span class='line'><span class="nx">Backbone</span><span class="p">.</span><span class="nx">Validate</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">model</span><span class="p">,</span> <span class="nx">changedAttributes</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'><span class="p">};</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>A few things of not here:</p>
+
+<ul>
+<li>We have bootstapped a model here, this is all we will have to touch on Gazler.Model</li>
+<li>Validate only returns if there are errors, Backbone will not continue with the save action if validate returns <strong>anything</strong></li>
+<li>We have added an empty validates hash, this will be where we store our rules.</li>
+<li>We have added some strings at the top, normally these would be generated from the language file you are using (<strong>config/locales</strong> in ruby)</li>
+</ul>
+
+
+<p>With everything ready to go, we can write our first test.</p>
+
+<figure class='code'><figcaption><span>validator_spec.js </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+</pre></td><td class='code'><pre><code class='js'><span class='line'><span class="nx">describe</span><span class="p">(</span><span class="s2">&quot;Model Validations&quot;</span><span class="p">,</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="nx">beforeEach</span><span class="p">(</span><span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>    <span class="c1">//instantiate a model</span>
+</span><span class='line'>    <span class="k">this</span><span class="p">.</span><span class="nx">model</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Gazler</span><span class="p">.</span><span class="nx">Model</span><span class="p">();</span>
+</span><span class='line'>    <span class="c1">//A Url property must be specified</span>
+</span><span class='line'>    <span class="k">this</span><span class="p">.</span><span class="nx">model</span><span class="p">.</span><span class="nx">url</span> <span class="o">=</span> <span class="s2">&quot;/&quot;</span><span class="p">;</span>
+</span><span class='line'>  <span class="p">});</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="nx">describe</span><span class="p">(</span><span class="s2">&quot;required&quot;</span><span class="p">,</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="nx">it</span><span class="p">(</span><span class="s2">&quot;should add an error when a required field is blank&quot;</span><span class="p">,</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>      <span class="k">this</span><span class="p">.</span><span class="nx">model</span><span class="p">.</span><span class="nx">validates</span> <span class="o">=</span> <span class="p">{</span>
+</span><span class='line'>        <span class="nx">required</span><span class="o">:</span> <span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span>
+</span><span class='line'>      <span class="p">};</span>
+</span><span class='line'>
+</span><span class='line'>      <span class="k">this</span><span class="p">.</span><span class="nx">model</span><span class="p">.</span><span class="nx">validate</span><span class="p">();</span>
+</span><span class='line'>      <span class="nx">expect</span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">model</span><span class="p">.</span><span class="nx">errors</span><span class="p">).</span><span class="nx">toEqual</span><span class="p">({</span><span class="s2">&quot;name&quot;</span><span class="o">:</span> <span class="p">[</span><span class="s2">&quot;is required&quot;</span><span class="p">]});</span>
+</span><span class='line'>    <span class="p">});</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="p">});</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">});</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>This should be pretty self explanatory, the key part here is that we add the validates hash to the model before each test and then call validate. We then simply check the errors hash against what we expect it to output.  If you open <code>SpecHelper.html</code> then you should see that this test is failing.</p>
+
+<p>To make this test pass, we need to run through the rules specified in the validates hash and see if any of them have been broken.  In order to do this, we need to add some code to the Backbone.Validate method.</p>
+
+<figure class='code'><figcaption><span>backbone_validator.js </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+</pre></td><td class='code'><pre><code class='js'><span class='line'><span class="nx">Backbone</span><span class="p">.</span><span class="nx">Validate</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">model</span><span class="p">,</span> <span class="nx">changedAttributes</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">return</span> <span class="p">(</span><span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>    <span class="k">this</span><span class="p">.</span><span class="nx">errors</span> <span class="o">=</span> <span class="p">{};</span>
+</span><span class='line'>    <span class="k">this</span><span class="p">.</span><span class="nx">attributes</span> <span class="o">=</span> <span class="nx">_</span><span class="p">.</span><span class="nx">clone</span><span class="p">(</span><span class="nx">model</span><span class="p">.</span><span class="nx">attributes</span><span class="p">);</span>
+</span><span class='line'>    <span class="nx">_</span><span class="p">.</span><span class="nx">extend</span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">attributes</span><span class="p">,</span> <span class="nx">changedAttributes</span><span class="p">);</span>
+</span><span class='line'>    <span class="nx">_</span><span class="p">.</span><span class="nx">each</span><span class="p">(</span><span class="nx">model</span><span class="p">.</span><span class="nx">validates</span><span class="p">,</span> <span class="kd">function</span><span class="p">(</span><span class="nx">value</span><span class="p">,</span> <span class="nx">rule</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>      <span class="k">this</span><span class="p">.</span><span class="nx">validators</span><span class="p">[</span><span class="nx">rule</span><span class="p">](</span><span class="nx">value</span><span class="p">);</span>
+</span><span class='line'>    <span class="p">});</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">this</span><span class="p">.</span><span class="nx">validators</span> <span class="o">=</span> <span class="p">{</span>
+</span><span class='line'>      <span class="nx">required</span><span class="o">:</span> <span class="kd">function</span><span class="p">(</span><span class="nx">fields</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>       <span class="nx">_</span><span class="p">.</span><span class="nx">each</span><span class="p">(</span><span class="nx">fields</span><span class="p">,</span> <span class="kd">function</span><span class="p">(</span><span class="nx">field</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>          <span class="k">if</span><span class="p">(</span><span class="nx">_</span><span class="p">.</span><span class="nx">isEmpty</span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">attributes</span><span class="p">[</span><span class="nx">field</span><span class="p">])</span> <span class="o">===</span> <span class="kc">true</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>            <span class="k">this</span><span class="p">.</span><span class="nx">addError</span><span class="p">(</span><span class="nx">field</span><span class="p">,</span> <span class="nx">I18n</span><span class="p">.</span><span class="nx">t</span><span class="p">(</span><span class="s1">&#39;errors.form.required&#39;</span><span class="p">));</span>
+</span><span class='line'>          <span class="p">}</span>
+</span><span class='line'>        <span class="p">});</span>
+</span><span class='line'>      <span class="p">}</span>
+</span><span class='line'>    <span class="p">};</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">this</span><span class="p">.</span><span class="nx">addError</span> <span class="o">=</span> <span class="kd">function</span><span class="p">(</span><span class="nx">field</span><span class="p">,</span> <span class="nx">message</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>      <span class="k">if</span> <span class="p">(</span><span class="nx">_</span><span class="p">.</span><span class="nx">isUndefined</span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">errors</span><span class="p">[</span><span class="nx">field</span><span class="p">]))</span> <span class="p">{</span>
+</span><span class='line'>        <span class="k">this</span><span class="p">.</span><span class="nx">errors</span><span class="p">[</span><span class="nx">field</span><span class="p">]</span> <span class="o">=</span> <span class="p">[];</span>
+</span><span class='line'>      <span class="p">}</span>
+</span><span class='line'>      <span class="k">this</span><span class="p">.</span><span class="nx">errors</span><span class="p">[</span><span class="nx">field</span><span class="p">].</span><span class="nx">push</span><span class="p">(</span><span class="nx">message</span><span class="p">);</span>
+</span><span class='line'>    <span class="p">};</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="k">return</span> <span class="k">this</span><span class="p">.</span><span class="nx">errors</span><span class="p">;</span>
+</span><span class='line'>  <span class="p">})();</span>
+</span><span class='line'><span class="p">};</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>That code block can be quite a lot to take in, but I&#8217;ll try to explain it.  The first thing to not is that it returns the results of a self-invoked function.  The reason for this is to keep the scope of this throughout the Validate method.</p>
+
+<p>Inside this function, we maintain our own references to errors and attributes.  This is because we don&#8217;t want to do anything that could affect the values that are on the model, which is not the goal, we want to let Backbone deal with that.  We use the clone method of underscore to keep our own reference.</p>
+
+<p>Using the extend method of Underscore, the changedAttributes are merged into our attributes reference, this means that <code>this.attributes</code> contains all the attributes present <strong>before</strong> validate was called, and the new ones too.</p>
+
+<p>The code on line 7 is used to call a methods defined in the <code>this.validators</code> hash.  Currently there is only one method defined there, but we will expand that in the future and add more validators, such as numericality or format.</p>
+
+<p>As required is the easiest method, that is the first one to implement,  Simply using the <code>_.isEmpty()</code> method, you can determine if a required field is present or not.  if it is not present, there is a small helper method to push the error onto the errors object.</p>
+
+<p>If you re-run the test(s) now then you will see that our single test is passing.</p>
+
+<h2>Wrapping up</h2>
+
+<p>There are two more tests that we should add before we are done with the required method.  Both should go inside the describe(&#8220;required&#8221;) block.</p>
+
+<figure class='code'><figcaption><span>validator_spec.js </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+</pre></td><td class='code'><pre><code class='js'><span class='line'>    <span class="nx">it</span><span class="p">(</span><span class="s2">&quot;should allow required on more than one field&quot;</span><span class="p">,</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>      <span class="k">this</span><span class="p">.</span><span class="nx">model</span><span class="p">.</span><span class="nx">validates</span> <span class="o">=</span> <span class="p">{</span>
+</span><span class='line'>        <span class="nx">required</span><span class="o">:</span> <span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="s2">&quot;description&quot;</span><span class="p">]</span>
+</span><span class='line'>      <span class="p">};</span>
+</span><span class='line'>
+</span><span class='line'>      <span class="k">this</span><span class="p">.</span><span class="nx">model</span><span class="p">.</span><span class="nx">validate</span><span class="p">();</span>
+</span><span class='line'>      <span class="nx">expect</span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">model</span><span class="p">.</span><span class="nx">errors</span><span class="p">).</span><span class="nx">toEqual</span><span class="p">({</span><span class="s2">&quot;name&quot;</span><span class="o">:</span> <span class="p">[</span><span class="s2">&quot;is required&quot;</span><span class="p">],</span> <span class="s2">&quot;description&quot;</span><span class="o">:</span> <span class="p">[</span><span class="s2">&quot;is required&quot;</span><span class="p">]});</span>
+</span><span class='line'>    <span class="p">});</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="nx">it</span><span class="p">(</span><span class="s2">&quot;should not return anything if there are no required fields&quot;</span><span class="p">,</span> <span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>      <span class="nx">expect</span><span class="p">(</span><span class="k">this</span><span class="p">.</span><span class="nx">model</span><span class="p">.</span><span class="nx">validate</span><span class="p">()).</span><span class="nx">toEqual</span><span class="p">(</span><span class="kc">undefined</span><span class="p">);</span>
+</span><span class='line'>    <span class="p">});</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>These two tests should be fairly obvious in they&#8217;re purpose.  One thing of not is in the test with no required fields, we are testing that the validate method returns undefined.  As mentioned earlier, this is because Backbone required you to not return anything if you want to continue with the set/save after validating.</p>
+
+<p>That is it for part 1.  We will take this concept further in part 2.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[OAuth2 Consumer With Sinatra]]></title>
+    <link href="http://Gazler.github.com/blog/2012/01/11/oauth2-consumer-with-sinatra/"/>
+    <updated>2012-01-11T20:40:00+00:00</updated>
+    <id>http://Gazler.github.com/blog/2012/01/11/oauth2-consumer-with-sinatra</id>
+    <content type="html"><![CDATA[<p><strong>This is part 2 of creating an OAuth based API with rails.  <a href="http://blog.gazler.com/blog/2012/01/08/oauth2-provider-with-rails/">Part 1 is available here</a>.</strong></p>
+
+<h2>Source</h2>
+
+<p>The source for both the provider and the consumer are available <a href="https://github.com/Gazler/Oauth2-Tutorial">here</a></p>
+
+<h2>Screencasts</h2>
+
+<p>I have created screencasts to go along with this tutorial.  This is my first attempt at screencasting, so please drop me a message if you find them useful or if there is anything you think can be improved.  Your feedback is appreciated.</p>
+
+<p><em>Download</em> <a href="http://screencasts.gazler.com/provider.mp4">mp4 format</a> <a href="http://screencasts.gazler.com/provider.ogv">ogv format</a> <a href="http://screencasts.gazler.com/provider.avi">avi format</a></p>
+
+<p>Change the following in <em>views/oauth/oauth2_authorize.html.erb</em></p>
+
+<figure class='code'> <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="o">&lt;</span><span class="nb">p</span><span class="o">&gt;</span><span class="no">Would</span> <span class="n">you</span> <span class="n">like</span> <span class="n">to</span> <span class="n">authorize</span> <span class="o">&lt;</span><span class="sx">%= link_to @token.client_application.name,@token.client_application.url %&gt; (&lt;%=</span> <span class="n">link_to</span> <span class="vi">@token</span><span class="o">.</span><span class="n">client_application</span><span class="o">.</span><span class="n">url</span><span class="p">,</span><span class="vi">@token</span><span class="o">.</span><span class="n">client_application</span><span class="o">.</span><span class="n">url</span> <span class="sx">%&gt;) to access your account?&lt;/p&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>To</p>
+
+<figure class='code'><figcaption><span>views/oauth/oauth2_authorize.html.erb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="o">&lt;</span><span class="nb">p</span><span class="o">&gt;</span><span class="no">Would</span> <span class="n">you</span> <span class="n">like</span> <span class="n">to</span> <span class="n">authorize</span> <span class="o">&lt;</span><span class="sx">%= link_to @client_application.name,@client_application.url %&gt; (&lt;%=</span> <span class="n">link_to</span> <span class="vi">@client_application</span><span class="o">.</span><span class="n">url</span><span class="p">,</span><span class="vi">@client_application</span><span class="o">.</span><span class="n">url</span> <span class="sx">%&gt;) to access your account?&lt;/p&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+
+
+<!-- more -->
+
+
+<p>You should now start a rails server and navigate to http://localhost:3000/users/sign_up, after signing up go to http://localhost:3000/oauth_clients and create a client.  Please not that your client callback_url must match that of the one passed through in your app.  If you are using the demo sinatra app, it should be <strong>http://localhost:4567/auth/test</strong></p>
+
+<p>There are a couple things you should change in <em>views/oauth_clients/index.html.erb</em> Change the @tokens block to:</p>
+
+<figure class='code'><figcaption><span>views/oauth_clients/index.html.erb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'> <span class="o">&lt;</span><span class="sx">% @tokens.each </span><span class="k">do</span> <span class="o">|</span><span class="n">token</span><span class="o">|</span><span class="sx">%&gt;</span>
+</span><span class='line'><span class="sx">  &lt;tr&gt;</span>
+</span><span class='line'>    <span class="o">&lt;</span><span class="n">td</span><span class="o">&gt;&lt;</span><span class="sx">%= link_to token.client_application.name, token.client_application.url %&gt;&lt;/td&gt;</span>
+</span><span class='line'><span class="sx">    &lt;td&gt;&lt;%=</span> <span class="n">token</span><span class="o">.</span><span class="n">authorized_at</span> <span class="sx">%&gt;&lt;/td&gt;</span>
+</span><span class='line'>    <span class="o">&lt;</span><span class="n">td</span><span class="o">&gt;&amp;</span><span class="n">nbsp</span><span class="p">;</span><span class="o">&lt;</span><span class="sr">/td&gt;</span>
+</span><span class='line'><span class="sr">  &lt;/</span><span class="n">tr</span><span class="o">&gt;</span>
+</span><span class='line'><span class="o">&lt;</span><span class="sx">% end </span><span class="o">%&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>And change the @client_applications block to:</p>
+
+<figure class='code'><figcaption><span>views/oauth_clients/index.html.erb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="o">&lt;</span><span class="sx">% @client_applications.each </span><span class="k">do</span> <span class="o">|</span><span class="n">client</span><span class="o">|</span><span class="sx">%&gt;</span>
+</span><span class='line'><span class="sx">  &lt;div&gt;</span>
+</span><span class='line'>    <span class="o">&lt;</span><span class="sx">%= link_to client.name, oauth_client_path(client) %&gt;-</span>
+</span><span class='line'><span class="sx">      &lt;%=</span> <span class="n">link_to</span> <span class="s1">&#39;Edit&#39;</span><span class="p">,</span> <span class="n">edit_oauth_client_path</span><span class="p">(</span><span class="n">client</span><span class="p">)</span> <span class="sx">%&gt;</span>
+</span><span class='line'><span class="sx">      &lt;%= link_to &#39;Delete&#39;, oauth_client_path(client), :confirm =&gt;</span> <span class="s2">&quot;Are you sure?&quot;</span><span class="p">,</span> <span class="ss">:method</span> <span class="o">=&gt;</span> <span class="ss">:delete</span> <span class="sx">%&gt;</span>
+</span><span class='line'><span class="sx">  &lt;/div&gt;</span>
+</span><span class='line'><span class="o">&lt;</span><span class="sx">% end </span><span class="o">%&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>You should now create a consumer directory outside of the rails root.</p>
+
+<pre><code>cd ..
+mkdir consumer &amp;&amp; cd consumer
+</code></pre>
+
+<p>You will then need to install sinatra and the oauth2 gem <strong>Please note this requires a version of oauth higher than 0.5 </strong></p>
+
+<pre><code>gem install sinatra
+gem install oauth2 
+</code></pre>
+
+<p>Copy the following code, replacing the API keys from those of the client:</p>
+
+<figure class='code'><figcaption><span>app.rb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="nb">require</span> <span class="s1">&#39;sinatra&#39;</span>
+</span><span class='line'><span class="nb">require</span> <span class="s1">&#39;oauth2&#39;</span>
+</span><span class='line'><span class="nb">require</span> <span class="s1">&#39;json&#39;</span>
+</span><span class='line'><span class="n">enable</span> <span class="ss">:sessions</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">def</span> <span class="nf">client</span>
+</span><span class='line'>  <span class="no">OAuth2</span><span class="o">::</span><span class="no">Client</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="n">consumer_key</span><span class="p">,</span> <span class="n">consumer_secret</span><span class="p">,</span> <span class="ss">:site</span> <span class="o">=&gt;</span> <span class="s2">&quot;http://localhost:3000&quot;</span><span class="p">)</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">get</span> <span class="s2">&quot;/auth/test&quot;</span> <span class="k">do</span>
+</span><span class='line'>  <span class="n">redirect</span> <span class="n">client</span><span class="o">.</span><span class="n">auth_code</span><span class="o">.</span><span class="n">authorize_url</span><span class="p">(</span><span class="ss">:redirect_uri</span> <span class="o">=&gt;</span> <span class="n">redirect_uri</span><span class="p">)</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">get</span> <span class="s1">&#39;/auth/test/callback&#39;</span> <span class="k">do</span>
+</span><span class='line'>  <span class="n">access_token</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">auth_code</span><span class="o">.</span><span class="n">get_token</span><span class="p">(</span><span class="n">params</span><span class="o">[</span><span class="ss">:code</span><span class="o">]</span><span class="p">,</span> <span class="ss">:redirect_uri</span> <span class="o">=&gt;</span> <span class="n">redirect_uri</span><span class="p">)</span>
+</span><span class='line'>  <span class="n">session</span><span class="o">[</span><span class="ss">:access_token</span><span class="o">]</span> <span class="o">=</span> <span class="n">access_token</span><span class="o">.</span><span class="n">token</span>
+</span><span class='line'>  <span class="vi">@message</span> <span class="o">=</span> <span class="s2">&quot;Successfully authenticated with the server&quot;</span>
+</span><span class='line'>  <span class="n">erb</span> <span class="ss">:success</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">get</span> <span class="s1">&#39;/yet_another&#39;</span> <span class="k">do</span>
+</span><span class='line'>  <span class="vi">@message</span> <span class="o">=</span> <span class="n">get_response</span><span class="p">(</span><span class="s1">&#39;data.json&#39;</span><span class="p">)</span>
+</span><span class='line'>  <span class="n">erb</span> <span class="ss">:success</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'><span class="n">get</span> <span class="s1">&#39;/another_page&#39;</span> <span class="k">do</span>
+</span><span class='line'>  <span class="vi">@message</span> <span class="o">=</span> <span class="n">get_response</span><span class="p">(</span><span class="s1">&#39;data.json&#39;</span><span class="p">)</span>
+</span><span class='line'>  <span class="n">erb</span> <span class="ss">:another</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">def</span> <span class="nf">get_response</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+</span><span class='line'>  <span class="n">access_token</span> <span class="o">=</span> <span class="no">OAuth2</span><span class="o">::</span><span class="no">AccessToken</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">session</span><span class="o">[</span><span class="ss">:access_token</span><span class="o">]</span><span class="p">)</span>
+</span><span class='line'>  <span class="no">JSON</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">access_token</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/api/v1/</span><span class="si">#{</span><span class="n">url</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">body</span><span class="p">)</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="k">def</span> <span class="nf">redirect_uri</span>
+</span><span class='line'>  <span class="n">uri</span> <span class="o">=</span> <span class="no">URI</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">url</span><span class="p">)</span>
+</span><span class='line'>  <span class="n">uri</span><span class="o">.</span><span class="n">path</span> <span class="o">=</span> <span class="s1">&#39;/auth/test/callback&#39;</span>
+</span><span class='line'>  <span class="n">uri</span><span class="o">.</span><span class="n">query</span> <span class="o">=</span> <span class="kp">nil</span>
+</span><span class='line'>  <span class="n">uri</span><span class="o">.</span><span class="n">to_s</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>You can grab the required views from <em>consumer/views</em></p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[OAuth2 Provider With Rails]]></title>
+    <link href="http://Gazler.github.com/blog/2012/01/08/oauth2-provider-with-rails/"/>
+    <updated>2012-01-08T21:16:00+00:00</updated>
+    <id>http://Gazler.github.com/blog/2012/01/08/oauth2-provider-with-rails</id>
+    <content type="html"><![CDATA[<p><strong>This is part 1 of creating an OAuth based API with rails.  <a href="http://blog.gazler.com/blog/2012/01/11/oauth2-consumer-with-sinatra/">Part 2 is available here</a>.</strong></p>
+
+<p>Recently I had the need to create an Oauth2 authenticated API.  The following is an app in its most simple form to get you started with creating and testing an Oauth2 powered API, using oauth-plugin, devise and rspec.</p>
+
+<h2>Source</h2>
+
+<p>The source for both the provider and the consumer are available <a href="https://github.com/Gazler/Oauth2-Tutorial">here</a></p>
+
+<h2>Screencasts</h2>
+
+<p>I have created screencasts to go along with this tutorial.  This is my first attempt at screencasting, so please drop me a message if you find them useful or if there is anything you think can be improved.  Your feedback is appreciated.</p>
+
+<p><em>Download</em> <a href="http://screencasts.gazler.com/provider.mp4">mp4 format</a> <a href="http://screencasts.gazler.com/provider.ogv">ogv format</a> <a href="http://screencasts.gazler.com/provider.avi">avi format</a></p>
+
+<h2>Creating The Provider</h2>
+
+<p>Start by opening up your terminal.  For demonstration purposes I recommend creating a folder called oauth to put both the provider and consumer.</p>
+
+<!-- more -->
+
+
+<pre><code>mkdir oauth &amp;&amp; cd oauth
+rails new provider
+cd provider
+</code></pre>
+
+<p>The next step is to add the oauth-plugin gem to your Gemfile.  For this demo I will also be using devise for authentication.  If you wish to use RSpec as your testing framework, now would be the time to add it.</p>
+
+<figure class='code'><figcaption><span>Gemfile  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">gem</span> <span class="s1">&#39;devise&#39;</span>
+</span><span class='line'><span class="n">gem</span> <span class="s2">&quot;oauth-plugin&quot;</span><span class="p">,</span> <span class="s2">&quot;&gt;= 0.4.0.rc2&quot;</span>
+</span><span class='line'><span class="n">group</span> <span class="ss">:test</span> <span class="k">do</span>
+</span><span class='line'>    <span class="n">gem</span> <span class="s1">&#39;rspec-rails&#39;</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>You should run <em>bundle install</em> to install the oauth-plugin (and rspec.)</p>
+
+<p>If you are using rspec then run:</p>
+
+<pre><code>rails g rspec:install
+</code></pre>
+
+<p>If you are using devise then you should create your devise install and user.</p>
+
+<pre><code>rails generate devise:install
+rails generate devise User
+</code></pre>
+
+<p>Then create the oauth provider (Note I am using rspec)</p>
+
+<pre><code>rails g oauth_provider --test-framework=rspec
+</code></pre>
+
+<p>And migrate the database</p>
+
+<pre><code>rake db:migrate
+</code></pre>
+
+<p>Might as well do the test database here too</p>
+
+<pre><code>rake db:test:prepare
+</code></pre>
+
+<p>This will generate some files, there are a few changes required for everything to work.  The first is to delete the file <em>spec/controllers/oauth_clients_controller_spec.rb</em> as mentioned in <a href="https://github.com/pelle/oauth-plugin/commit/6e24ec0ee2f3dc871756b2e8a75fa2181ff504f4">this commit</a>.  You should also remove <em>/spec/models/oauth_token_spec.rb</em> as we are dealing exclusively with oauth2.
+The second change is in your <em>config/routes.rb</em> file, add:</p>
+
+<figure class='code'><figcaption><span>config/routes/rb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">root</span> <span class="ss">:to</span> <span class="o">=&gt;</span> <span class="s2">&quot;oauth_clients#index&quot;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>You will also need to add the following methods to your <em>app/controllers/application_controller.rb</em> to make things work as the oauth-plugin gem required a current_user= method.</p>
+
+<figure class='code'><figcaption><span>app/controllers/application_controller.rb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">def</span> <span class="nf">current_user</span><span class="o">=</span><span class="p">(</span><span class="n">user</span><span class="p">)</span>
+</span><span class='line'>  <span class="n">current_user</span> <span class="o">=</span> <span class="n">user</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>You need to add the following to your user model:</p>
+
+<figure class='code'><figcaption><span>app/models/user.rb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">has_many</span> <span class="ss">:client_applications</span>
+</span><span class='line'><span class="n">has_many</span> <span class="ss">:tokens</span><span class="p">,</span> <span class="ss">:class_name</span><span class="o">=&gt;</span><span class="s2">&quot;Oauth2Token&quot;</span><span class="p">,</span><span class="ss">:order</span><span class="o">=&gt;</span><span class="s2">&quot;authorized_at desc&quot;</span><span class="p">,</span><span class="ss">:include</span><span class="o">=&gt;[</span><span class="ss">:client_application</span><span class="o">]</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>You need to add the following attr_accessor to <em>app/models/oauth_token.rb</em></p>
+
+<figure class='code'><figcaption><span>app/models/oauth_token.rb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="kp">attr_accessor</span> <span class="ss">:expires_at</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The following alias to <em>app/controllers/oauth_controller.rb</em> <strong>and</strong> <em>app/controllers/oauth_clients_controller.rb</em></p>
+
+<figure class='code'><figcaption><span>app/controllers/oauth_controller.rb|app/controllers/oauth_clients_controller.rb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">alias</span> <span class="ss">:login_required</span> <span class="ss">:authenticate_user!</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>And finally add the following to <em>config/application.rb</em></p>
+
+<figure class='code'><figcaption><span>config/application.rb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="nb">require</span> <span class="s1">&#39;oauth/rack/oauth_filter&#39;</span>
+</span><span class='line'><span class="n">config</span><span class="o">.</span><span class="n">middleware</span><span class="o">.</span><span class="n">use</span> <span class="no">OAuth</span><span class="o">::</span><span class="no">Rack</span><span class="o">::</span><span class="no">OAuthFilter</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>For the purposes of this test, we will use fixtures, I recommend using factories for real testing.  Grab the 4 fixtures files out of <em>spec/fixtures</em> (I got them from the oauth-plugin but they were not included in the generator)</p>
+
+<p>After these files are included, you can run rspec to test what we have so far.</p>
+
+<pre><code>bundle exec rspec spec
+</code></pre>
+
+<p>There should be 23 examples, all passing.</p>
+
+<p>You should now create a basic rspec test for what will be your API call.  Grab my one out of <em>spec/api/v1/data_controller_spec.rb</em>  Also copy the file <em>support/api_helper.rb</em></p>
+
+<p>When you run rspec on this, it should error, you now need to create your API controller.  Since in this example all the API calls will require a valid oauth token, let&#8217;s create a base controller and then our data controller.</p>
+
+<pre><code>rails g controller API::V1::Base
+rails g controller API::V1::Data
+</code></pre>
+
+<p>Change the DataController so it extends API::V1::BaseController</p>
+
+<figure class='code'><figcaption><span>app/controllers/api/v1/data_controller.rb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">class</span> <span class="nc">Api</span><span class="o">::</span><span class="no">V1</span><span class="o">::</span><span class="no">DataController</span> <span class="o">&lt;</span> <span class="no">Api</span><span class="o">::</span><span class="no">V1</span><span class="o">::</span><span class="no">BaseController</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Now create the routes, add the following to your <em>config/routes.rb</em> file</p>
+
+<figure class='code'><figcaption><span>config/routes.rb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">namespace</span> <span class="ss">:api</span> <span class="k">do</span>
+</span><span class='line'>  <span class="n">namespace</span> <span class="ss">:v1</span> <span class="k">do</span>
+</span><span class='line'>    <span class="n">match</span> <span class="s2">&quot;data&quot;</span> <span class="o">=&gt;</span> <span class="s2">&quot;data#show&quot;</span>
+</span><span class='line'>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>You will need a show action in your data controller (<em>app/controllers/api/v1/data_controller.rb</em>)</p>
+
+<figure class='code'><figcaption><span>app/controllers/api/v1/data_controller.rb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">def</span> <span class="nf">show</span>
+</span><span class='line'>  <span class="n">respond_with</span> <span class="p">({</span><span class="ss">:super_secret</span> <span class="o">=&gt;</span> <span class="s2">&quot;oauth_data&quot;</span><span class="p">})</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>You will also need to specify the formats that your controllers responds to in your base controller (<em>app/controllers/api/v1/base_controller.rb</em>)</p>
+
+<figure class='code'><figcaption><span>app/controllers/api/v1/base_controller.rb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">respond_to</span> <span class="ss">:json</span><span class="p">,</span> <span class="ss">:xml</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>You should also specify which methods require oauth, since it is all in this case, also add the following to your base controllers (the interactive flag is the equivalant of oauth_or_login_required, we want oauth only so we disable it.</p>
+
+<figure class='code'><figcaption><span>app/controllers/api/v1/base_controller.rb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">oauthenticate</span> <span class="ss">:interactive</span><span class="o">=&gt;</span><span class="kp">false</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>If we run our test specs again now, they should pass and there you have it, the beginnings of an Oauth2 API.</p>
+
+<p>Stay tuned for part 2, The Consumer.</p>
+]]></content>
+  </entry>
+  
+</feed>

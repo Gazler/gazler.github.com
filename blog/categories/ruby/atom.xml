@@ -1,0 +1,696 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: ruby | Gazler]]></title>
+  <link href="http://Gazler.github.com/blog/categories/ruby/atom.xml" rel="self"/>
+  <link href="http://Gazler.github.com/"/>
+  <updated>2017-08-29T17:44:23+01:00</updated>
+  <id>http://Gazler.github.com/</id>
+  <author>
+    <name><![CDATA[Gary Rennie]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[How Travis Is Teaching Me To Cook]]></title>
+    <link href="http://Gazler.github.com/blog/2012/04/24/how-travis-is-teaching-me-to-cook/"/>
+    <updated>2012-04-24T12:39:00+01:00</updated>
+    <id>http://Gazler.github.com/blog/2012/04/24/how-travis-is-teaching-me-to-cook</id>
+    <content type="html"><![CDATA[<p><strong>Note: the contents of this post are heavily influenced by <a href="https://github.com/michaelklishin/sous-chef">Sous Chef</a>. </strong></p>
+
+<p>Over the past couple of weeks I have been working with a mobile developer to help integrate with one of my applications.  We plan on using OAuth (Which I have blogged about <a href="http://blog.gazler.com/blog/2012/01/08/oauth2-provider-with-rails/">here</a>) to authenticate the mobile application with the server.  The problem with this is that the rails application is still in development, and the mobile developer doesn't have the code running.  I don't want them to worry about dependencies, setting up the database or setting up git access via ssh keys, I just want him to be able to run the server.</p>
+
+<p>This is where <a href="http://vagrantup.com/">Vagrant</a> comes in.  Vagrant allows you to create Virtual Machines (using VirtualBox) programatically.  This means that I can create a VM of my application, hand it to anothe developer and let them get on with it.  Vagrant can utilize <a href="http://www.opscode.com/chef/">Chef</a> to build the machine.  Chef is an integration framework that makes it easy to deploy servers, which it does using cookbooks and recipes.  A recipe is for installing a particular piece of software and a cookbook is a collection of recipes.  There are plenty of cookbooks available online, I opted to use a set of cookbooks developed by <a href="http://travis-ci.org">Travis CI</a> that are available <a href="https://github.com/travis-ci/travis-cookbooks">on GitHub</a></p>
+
+<h2>Getting Started</h2>
+
+<p>The first thing to do is install Vagrant.  I chose to use the gem by doing:</p>
+
+<pre><code>gem install vagrant
+</code></pre>
+
+<p>However there are binaries available on their <a href="http://downloads.vagrantup.com/tags/v1.0.2">downloads</a> page.</p>
+
+<!-- more -->
+
+
+<p>The next step is to create a folder for vagrant to sit in and intialize vagrant.</p>
+
+<pre><code>mkdir my_application &amp;&amp; cd my_application
+vagrant init
+</code></pre>
+
+<p>This will create a Vagrantfile in your repository that should look like this:</p>
+
+<p><div class='bogus-wrapper'><notextile><figure class='code'><figcaption><span>Vagrantfile  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="o">&lt;</span><span class="sr">/p&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="sr">&lt;h1&gt;-&lt;em&gt;- mode: ruby -&lt;/em</span><span class="o">&gt;-&lt;</span><span class="sr">/h1&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="sr">&lt;h1&gt;vi: set ft=ruby :&lt;/</span><span class="n">h1</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="nb">p</span><span class="o">&gt;</span><span class="no">Vagrant</span><span class="o">::</span><span class="no">Config</span><span class="o">.</span><span class="n">run</span> <span class="k">do</span> <span class="o">|</span><span class="n">config</span><span class="o">|</span>
+</span><span class='line'>  <span class="n">config</span><span class="o">.</span><span class="n">vm</span><span class="o">.</span><span class="n">box</span> <span class="o">=</span> <span class="s2">&quot;base&quot;</span><span class="o">&lt;</span><span class="sr">/p&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="sr">&lt;p&gt;  #lots of comments!</span>
+</span><span class='line'><span class="sr">end</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div></p>
+
+<p>The first two lines tell your editor what syntax highlighting to use, which is ruby.  We're going to make some changes inside the config block, so remove the <code>config.vm.box = "base"</code> line.  The next step is to specify the "box" that is, the machine we want to boot from.  In this case I am using Ubuntu 11.04 provided by Travis CI.</p>
+
+<p><div class='bogus-wrapper'><notextile><figure class='code'><figcaption><span>Vagrantfile  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="no">Vagrant</span><span class="o">::</span><span class="no">Config</span><span class="o">.</span><span class="n">run</span> <span class="k">do</span> <span class="o">|</span><span class="n">config</span><span class="o">|&lt;</span><span class="sr">/p&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="sr">&lt;p&gt;   config.vm.box     = &quot;natty32_base&quot;</span>
+</span><span class='line'><span class="sr">   config.vm.box_url = &quot;http:/</span><span class="o">/</span><span class="n">files</span><span class="o">.</span><span class="n">travis</span><span class="o">-</span><span class="n">ci</span><span class="o">.</span><span class="n">org</span><span class="o">/</span><span class="n">boxes</span><span class="o">/</span><span class="n">bases</span><span class="o">/</span><span class="n">natty32</span><span class="o">.</span><span class="n">box</span><span class="s2">&quot;&lt;/p&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="s2">&lt;p&gt;end</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div></p>
+
+<p>This is all you need to start up.  If you run the command:</p>
+
+<pre><code>vagrant up
+</code></pre>
+
+<p>Then the virtual box will be started, and you can shell into it using <code>vagrant ssh</code>.</p>
+
+<h2>Cooking With Chef</h2>
+
+<p>Now that the VM is working, you could ssh in and install all the dependencies, but that isn't really a good way of doing it.  You would have to provide build instructions to other people using the box.  Instead, Chef can be used to install software on the VM.</p>
+
+<p>First of all, clone the cookbooks from Travis CI (or somewhere else if you use other cookbooks.)</p>
+
+<pre><code>git clone git://github.com/travis-ci/travis-cookbooks.git cookbooks
+</code></pre>
+
+<p>With the cookbooks, you can now modify your Vagrantfile to install software.</p>
+
+<p><div class='bogus-wrapper'><notextile><figure class='code'><figcaption><span>Vagrantfile  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="no">Vagrant</span><span class="o">::</span><span class="no">Config</span><span class="o">.</span><span class="n">run</span> <span class="k">do</span> <span class="o">|</span><span class="n">config</span><span class="o">|&lt;</span><span class="sr">/p&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="sr">&lt;pre&gt;&lt;code&gt;config.vm.box     = &quot;natty32_base&quot;</span>
+</span><span class='line'><span class="sr">config.vm.box_url = &quot;http:/</span><span class="o">/</span><span class="n">files</span><span class="o">.</span><span class="n">travis</span><span class="o">-</span><span class="n">ci</span><span class="o">.</span><span class="n">org</span><span class="o">/</span><span class="n">boxes</span><span class="o">/</span><span class="n">bases</span><span class="o">/</span><span class="n">natty32</span><span class="o">.</span><span class="n">box</span><span class="s2">&quot;</span>
+</span><span class='line'>
+</span><span class='line'><span class="s2">config.vm.provision :chef_solo do |chef|</span>
+</span><span class='line'><span class="s2">  chef.cookbooks_path = [&quot;</span><span class="n">cookbooks</span><span class="o">/</span><span class="n">ci_environment</span><span class="s2">&quot;]</span>
+</span><span class='line'><span class="s2">  chef.log_level = :debug</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="s2">  #Install application dependencies - apt and build-essential are a must</span>
+</span><span class='line'><span class="s2">  chef.add_recipe &quot;</span><span class="n">apt</span><span class="s2">&quot;</span>
+</span><span class='line'><span class="s2">  chef.add_recipe &quot;</span><span class="n">build</span><span class="o">-</span><span class="n">essential</span><span class="s2">&quot;</span>
+</span><span class='line'><span class="s2">  chef.add_recipe &quot;</span><span class="n">git</span><span class="s2">&quot;</span>
+</span><span class='line'><span class="s2">  chef.add_recipe &quot;</span><span class="n">rvm</span><span class="s2">&quot;</span>
+</span><span class='line'><span class="s2">  chef.add_recipe &quot;</span><span class="n">sqlite</span><span class="s2">&quot;</span>
+</span><span class='line'><span class="s2">  chef.json.merge!({</span>
+</span><span class='line'><span class="s2">                      :apt =&amp;gt; {</span>
+</span><span class='line'><span class="s2">                        :mirror =&amp;gt; :ru</span>
+</span><span class='line'><span class="s2">                      },</span>
+</span><span class='line'><span class="s2">                      :rvm =&amp;gt; {</span>
+</span><span class='line'><span class="s2">                        :rubies  =&amp;gt; [{ :name =&amp;gt; &quot;</span><span class="mi">1</span><span class="o">.</span><span class="mi">9</span><span class="o">.</span><span class="mi">2</span><span class="s2">&quot; }]</span>
+</span><span class='line'><span class="s2">                      },</span>
+</span><span class='line'><span class="s2">                      :travis_build_environment =&amp;gt; {</span>
+</span><span class='line'><span class="s2">                        :user =&amp;gt; &quot;</span><span class="n">vagrant</span><span class="s2">&quot;,</span>
+</span><span class='line'><span class="s2">                        :group =&amp;gt; &quot;</span><span class="n">vagrant</span><span class="s2">&quot;</span>
+</span><span class='line'><span class="s2">                      }</span>
+</span><span class='line'><span class="s2">                   })</span>
+</span><span class='line'><span class="s2">end</span>
+</span><span class='line'><span class="s2">&lt;/code&gt;&lt;/pre&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="s2">&lt;p&gt;end</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div></p>
+
+<p>You can call <code>chef.add_recipe</code> to install all of your application dependencies, you can check the cookbooks/ci_environment folder to see which recipes are available.  The last line in the config (<code>chef.json.merge</code>) contains the configuration used by the recipes (<a href="http://wiki.opscode.com/display/chef/Attributes">read more here</a>.)</p>
+
+<p>If you run <code>vagrant provision</code> then it will install all your dependencies (including ruby 1.9.2 as specified in the json block.)</p>
+
+<p>When this finishes, you can ssh into your box by calling <code>vagrant ssh</code> and check that ruby has been installed by typing <code>ruby -v</code> and it should return 1.9.2</p>
+
+<h2>Running your application</h2>
+
+<p>It is now time to add the application to the box.  To do this, a new recipe must be created.  I would recommend creating a new folder for your cookbook.  I called mine "application_cookbook"</p>
+
+<pre><code>mkdir -p application_cookbook/main/recipes
+</code></pre>
+
+<p>"main" is the name of your recipe and "recipes" is where the recipes live.  Create a new file in recipes called "default.rb" and inside the file, put the following:</p>
+
+<p><div class='bogus-wrapper'><notextile><figure class='code'><figcaption><span>default.rb </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+</pre></td><td class='code'><pre><code class='rb'><span class='line'><span class="n">application_dir</span> <span class="o">=</span> <span class="s2">&quot;/home/vagrant/application&quot;</span><span class="o">&lt;</span><span class="sr">/p&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="sr">&lt;h1&gt;install bundler&lt;/</span><span class="n">h1</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="nb">p</span><span class="o">&gt;</span><span class="n">gem_package</span> <span class="s2">&quot;bundler&quot;</span><span class="o">&lt;</span><span class="sr">/p&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="sr">&lt;h1&gt;update rubygems&lt;/</span><span class="n">h1</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="nb">p</span><span class="o">&gt;</span><span class="n">execute</span> <span class="s2">&quot;gem&quot;</span> <span class="k">do</span>
+</span><span class='line'>  <span class="n">command</span> <span class="s2">&quot;gem update --system&quot;</span>
+</span><span class='line'>  <span class="n">cwd</span> <span class="n">application_dir</span>
+</span><span class='line'><span class="k">end</span><span class="o">&lt;</span><span class="sr">/p&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="sr">&lt;p&gt;execute &quot;bundle&quot; do</span>
+</span><span class='line'><span class="sr">  command &quot;bundle&quot;</span>
+</span><span class='line'><span class="sr">  cwd application_dir</span>
+</span><span class='line'><span class="sr">end&lt;/</span><span class="nb">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">h1</span><span class="o">&gt;</span><span class="n">clear</span> <span class="ow">and</span> <span class="n">migrate</span> <span class="n">the</span> <span class="n">database</span><span class="o">&lt;</span><span class="sr">/h1&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="sr">&lt;p&gt;execute &quot;bundle&quot; do</span>
+</span><span class='line'><span class="sr">  command &quot;bundle exec rake db:drop db:migrate db:seed&quot;</span>
+</span><span class='line'><span class="sr">  cwd application_dir</span>
+</span><span class='line'><span class="sr">end&lt;/</span><span class="nb">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">h1</span><span class="o">&gt;</span><span class="n">start</span> <span class="n">the</span> <span class="n">server</span> <span class="ow">and</span> <span class="n">daemonize</span> <span class="n">it</span><span class="o">&lt;</span><span class="sr">/h1&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="sr">&lt;p&gt;execute &quot;rails&quot; do</span>
+</span><span class='line'><span class="sr">  command &quot;rails s -d&quot;</span>
+</span><span class='line'><span class="sr">  cwd application_dir</span>
+</span><span class='line'><span class="sr">end</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div></p>
+
+<p>This will install all the required gems and set up the database.  You may notice that we reference /home/vagrant/applicaiton, this is a folder we haven't created yet.  To do so we need some additional changes to the Vagrantfile.</p>
+
+<p><div class='bogus-wrapper'><notextile><figure class='code'><figcaption><span>Vagrantfile  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="no">Vagrant</span><span class="o">::</span><span class="no">Config</span><span class="o">.</span><span class="n">run</span> <span class="k">do</span> <span class="o">|</span><span class="n">config</span><span class="o">|</span>
+</span><span class='line'>  <span class="n">config</span><span class="o">.</span><span class="n">vm</span><span class="o">.</span><span class="n">provision</span> <span class="ss">:chef_solo</span> <span class="k">do</span> <span class="o">|</span><span class="n">chef</span><span class="o">|&lt;</span><span class="sr">/p&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="sr">&lt;pre&gt;&lt;code&gt;#Change the cookbooks_path to inclide your new recipes</span>
+</span><span class='line'><span class="sr">chef.cookbooks_path = [&quot;cookbooks/</span><span class="n">ci_environment</span><span class="s2">&quot;, &quot;</span><span class="n">application_cookbook</span><span class="s2">&quot;]</span>
+</span><span class='line'>
+</span><span class='line'><span class="s2">#keep all the old code here</span>
+</span><span class='line'>
+</span><span class='line'><span class="s2">#Add your new recipe</span>
+</span><span class='line'><span class="s2">chef.add_recipe &quot;</span><span class="n">main</span><span class="s2">&quot;</span>
+</span><span class='line'><span class="s2">&lt;/code&gt;&lt;/pre&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="s2">&lt;p&gt;  end&lt;/p&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="s2">&lt;p&gt;  #Create a reference to your application folder</span>
+</span><span class='line'><span class="s2">  config.vm.share_folder &quot;</span><span class="n">application</span><span class="s2">&quot;, &quot;</span><span class="n">application</span><span class="s2">&quot;, &quot;</span><span class="n">application</span><span class="s2">&quot;, :create =&gt; true</span>
+</span><span class='line'><span class="s2">  #forward requests for port 3000 to the virtual box</span>
+</span><span class='line'><span class="s2">  config.vm.forward_port 3000, 3000</span>
+</span><span class='line'><span class="s2">end</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div></p>
+
+<p>The final step is to move your application folder into your current directory <code>cp -r /path/to/application .</code></p>
+
+<p>You will need to reload vagrant as there are port and share folder changes.</p>
+
+<pre><code>vagrant reload
+</code></pre>
+
+<p>When everything finishes, when you navigate to <a href="http://localhost:3000">http://localhost:3000</a> then you should see your application!</p>
+
+<p>After I followed the above steps, I could zip up the folder, give it to the other developer and he was set.  He could extract the files, run <code>vagrant up</code> and access the server.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[OAuth2 Consumer With Sinatra]]></title>
+    <link href="http://Gazler.github.com/blog/2012/01/11/oauth2-consumer-with-sinatra/"/>
+    <updated>2012-01-11T20:40:00+00:00</updated>
+    <id>http://Gazler.github.com/blog/2012/01/11/oauth2-consumer-with-sinatra</id>
+    <content type="html"><![CDATA[<p><strong>This is part 2 of creating an OAuth based API with rails.  <a href="http://blog.gazler.com/blog/2012/01/08/oauth2-provider-with-rails/">Part 1 is available here</a>.</strong></p>
+
+<h2>Source</h2>
+
+<p>The source for both the provider and the consumer are available <a href="https://github.com/Gazler/Oauth2-Tutorial">here</a></p>
+
+<h2>Screencasts</h2>
+
+<p>I have created screencasts to go along with this tutorial.  This is my first attempt at screencasting, so please drop me a message if you find them useful or if there is anything you think can be improved.  Your feedback is appreciated.</p>
+
+<p><em>Download</em> <a href="http://screencasts.gazler.com/provider.mp4">mp4 format</a> <a href="http://screencasts.gazler.com/provider.ogv">ogv format</a> <a href="http://screencasts.gazler.com/provider.avi">avi format</a></p>
+
+<p>Change the following in <em>views/oauth/oauth2_authorize.html.erb</em></p>
+
+<p><div class='bogus-wrapper'><notextile><figure class='code'> <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="o">&lt;</span><span class="sr">/p&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="sr">&lt;p&gt;Would you like to authorize &lt;%= link_to @token.client_application.name,@token.client_application.url %&gt; (&lt;%= link_to @token.client_application.url,@token.client_application.url %&gt;) to access your account?&lt;/</span><span class="nb">p</span><span class="o">&gt;</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div>
+To
+
+<div class='bogus-wrapper'><notextile><figure class='code'><figcaption><span>views/oauth/oauth2_authorize.html.erb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="o">&lt;</span><span class="nb">p</span><span class="o">&gt;</span><span class="no">Would</span> <span class="n">you</span> <span class="n">like</span> <span class="n">to</span> <span class="n">authorize</span> <span class="o">&lt;</span><span class="sx">%= link_to @client_application.name,@client_application.url %&gt; (&lt;%=</span> <span class="n">link_to</span> <span class="vi">@client_application</span><span class="o">.</span><span class="n">url</span><span class="p">,</span><span class="vi">@client_application</span><span class="o">.</span><span class="n">url</span> <span class="sx">%&gt;) to access your account?&lt;/p&gt;</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div>
+    
+<!-- more -->
+
+You should now start a rails server and navigate to http://localhost:3000/users/sign_up, after signing up go to http://localhost:3000/oauth_clients and create a client.  Please not that your client callback_url must match that of the one passed through in your app.  If you are using the demo sinatra app, it should be **http://localhost:4567/auth/test**
+
+There are a couple things you should change in *views/oauth_clients/index.html.erb* Change the @tokens block to:
+
+<div class='bogus-wrapper'><notextile><figure class='code'><figcaption><span>views/oauth_clients/index.html.erb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'> <span class="o">&lt;</span><span class="sx">% @tokens.each </span><span class="k">do</span> <span class="o">|</span><span class="n">token</span><span class="o">|</span><span class="sx">%&gt;</span>
+</span><span class='line'><span class="sx">  &lt;tr&gt;</span>
+</span><span class='line'>    <span class="o">&lt;</span><span class="n">td</span><span class="o">&gt;&lt;</span><span class="sx">%= link_to token.client_application.name, token.client_application.url %&gt;&lt;/td&gt;</span>
+</span><span class='line'><span class="sx">    &lt;td&gt;&lt;%=</span> <span class="n">token</span><span class="o">.</span><span class="n">authorized_at</span> <span class="sx">%&gt;&lt;/td&gt;</span>
+</span><span class='line'>    <span class="o">&lt;</span><span class="n">td</span><span class="o">&gt;&amp;</span><span class="n">nbsp</span><span class="p">;</span><span class="o">&lt;</span><span class="sr">/td&gt;</span>
+</span><span class='line'><span class="sr">  &lt;/</span><span class="n">tr</span><span class="o">&gt;</span>
+</span><span class='line'><span class="o">&lt;</span><span class="sx">% end </span><span class="o">%&gt;</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div>
+
+And change the @client_applications block to:
+
+<div class='bogus-wrapper'><notextile><figure class='code'><figcaption><span>views/oauth_clients/index.html.erb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="o">&lt;</span><span class="sx">% @client_applications.each </span><span class="k">do</span> <span class="o">|</span><span class="n">client</span><span class="o">|</span><span class="sx">%&gt;</span>
+</span><span class='line'><span class="sx">  &lt;div&gt;</span>
+</span><span class='line'>    <span class="o">&lt;</span><span class="sx">%= link_to client.name, oauth_client_path(client) %&gt;-</span>
+</span><span class='line'><span class="sx">      &lt;%=</span> <span class="n">link_to</span> <span class="s1">&#39;Edit&#39;</span><span class="p">,</span> <span class="n">edit_oauth_client_path</span><span class="p">(</span><span class="n">client</span><span class="p">)</span> <span class="sx">%&gt;</span>
+</span><span class='line'><span class="sx">      &lt;%= link_to &#39;Delete&#39;, oauth_client_path(client), :confirm =&gt;</span> <span class="s2">&quot;Are you sure?&quot;</span><span class="p">,</span> <span class="ss">:method</span> <span class="o">=&gt;</span> <span class="ss">:delete</span> <span class="sx">%&gt;</span>
+</span><span class='line'><span class="sx">  &lt;/div&gt;</span>
+</span><span class='line'><span class="o">&lt;</span><span class="sx">% end </span><span class="o">%&gt;</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div>
+
+You should now create a consumer directory outside of the rails root.
+
+    cd ..
+    mkdir consumer && cd consumer
+    
+You will then need to install sinatra and the oauth2 gem **Please note this requires a version of oauth higher than 0.5 **
+    gem install sinatra
+    gem install oauth2 
+
+Copy the following code, replacing the API keys from those of the client:
+
+
+<div class='bogus-wrapper'><notextile><figure class='code'><figcaption><span>app.rb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="nb">require</span> <span class="s1">&#39;sinatra&#39;</span>
+</span><span class='line'><span class="nb">require</span> <span class="s1">&#39;oauth2&#39;</span>
+</span><span class='line'><span class="nb">require</span> <span class="s1">&#39;json&#39;</span>
+</span><span class='line'><span class="n">enable</span> <span class="ss">:sessions</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">def</span> <span class="nf">client</span>
+</span><span class='line'>  <span class="no">OAuth2</span><span class="o">::</span><span class="no">Client</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="n">consumer_key</span><span class="p">,</span> <span class="n">consumer_secret</span><span class="p">,</span> <span class="ss">:site</span> <span class="o">=&gt;</span> <span class="s2">&quot;http://localhost:3000&quot;</span><span class="p">)</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">get</span> <span class="s2">&quot;/auth/test&quot;</span> <span class="k">do</span>
+</span><span class='line'>  <span class="n">redirect</span> <span class="n">client</span><span class="o">.</span><span class="n">auth_code</span><span class="o">.</span><span class="n">authorize_url</span><span class="p">(</span><span class="ss">:redirect_uri</span> <span class="o">=&gt;</span> <span class="n">redirect_uri</span><span class="p">)</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">get</span> <span class="s1">&#39;/auth/test/callback&#39;</span> <span class="k">do</span>
+</span><span class='line'>  <span class="n">access_token</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">auth_code</span><span class="o">.</span><span class="n">get_token</span><span class="p">(</span><span class="n">params</span><span class="o">[</span><span class="ss">:code</span><span class="o">]</span><span class="p">,</span> <span class="ss">:redirect_uri</span> <span class="o">=&gt;</span> <span class="n">redirect_uri</span><span class="p">)</span>
+</span><span class='line'>  <span class="n">session</span><span class="o">[</span><span class="ss">:access_token</span><span class="o">]</span> <span class="o">=</span> <span class="n">access_token</span><span class="o">.</span><span class="n">token</span>
+</span><span class='line'>  <span class="vi">@message</span> <span class="o">=</span> <span class="s2">&quot;Successfully authenticated with the server&quot;</span>
+</span><span class='line'>  <span class="n">erb</span> <span class="ss">:success</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">get</span> <span class="s1">&#39;/yet_another&#39;</span> <span class="k">do</span>
+</span><span class='line'>  <span class="vi">@message</span> <span class="o">=</span> <span class="n">get_response</span><span class="p">(</span><span class="s1">&#39;data.json&#39;</span><span class="p">)</span>
+</span><span class='line'>  <span class="n">erb</span> <span class="ss">:success</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'><span class="n">get</span> <span class="s1">&#39;/another_page&#39;</span> <span class="k">do</span>
+</span><span class='line'>  <span class="vi">@message</span> <span class="o">=</span> <span class="n">get_response</span><span class="p">(</span><span class="s1">&#39;data.json&#39;</span><span class="p">)</span>
+</span><span class='line'>  <span class="n">erb</span> <span class="ss">:another</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'><span class="k">def</span> <span class="nf">get_response</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+</span><span class='line'>  <span class="n">access_token</span> <span class="o">=</span> <span class="no">OAuth2</span><span class="o">::</span><span class="no">AccessToken</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">session</span><span class="o">[</span><span class="ss">:access_token</span><span class="o">]</span><span class="p">)</span>
+</span><span class='line'>  <span class="no">JSON</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">access_token</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/api/v1/</span><span class="si">#{</span><span class="n">url</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">body</span><span class="p">)</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="k">def</span> <span class="nf">redirect_uri</span>
+</span><span class='line'>  <span class="n">uri</span> <span class="o">=</span> <span class="no">URI</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">url</span><span class="p">)</span>
+</span><span class='line'>  <span class="n">uri</span><span class="o">.</span><span class="n">path</span> <span class="o">=</span> <span class="s1">&#39;/auth/test/callback&#39;</span>
+</span><span class='line'>  <span class="n">uri</span><span class="o">.</span><span class="n">query</span> <span class="o">=</span> <span class="kp">nil</span>
+</span><span class='line'>  <span class="n">uri</span><span class="o">.</span><span class="n">to_s</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div>
+    
+You can grab the required views from *consumer/views*
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[OAuth2 Provider With Rails]]></title>
+    <link href="http://Gazler.github.com/blog/2012/01/08/oauth2-provider-with-rails/"/>
+    <updated>2012-01-08T21:16:00+00:00</updated>
+    <id>http://Gazler.github.com/blog/2012/01/08/oauth2-provider-with-rails</id>
+    <content type="html"><![CDATA[<p><strong>This is part 1 of creating an OAuth based API with rails.  <a href="http://blog.gazler.com/blog/2012/01/11/oauth2-consumer-with-sinatra/">Part 2 is available here</a>.</strong></p>
+
+<p>Recently I had the need to create an Oauth2 authenticated API.  The following is an app in its most simple form to get you started with creating and testing an Oauth2 powered API, using oauth-plugin, devise and rspec.</p>
+
+<h2>Source</h2>
+
+<p>The source for both the provider and the consumer are available <a href="https://github.com/Gazler/Oauth2-Tutorial">here</a></p>
+
+<h2>Screencasts</h2>
+
+<p>I have created screencasts to go along with this tutorial.  This is my first attempt at screencasting, so please drop me a message if you find them useful or if there is anything you think can be improved.  Your feedback is appreciated.</p>
+
+<p><em>Download</em> <a href="http://screencasts.gazler.com/provider.mp4">mp4 format</a> <a href="http://screencasts.gazler.com/provider.ogv">ogv format</a> <a href="http://screencasts.gazler.com/provider.avi">avi format</a></p>
+
+<h2>Creating The Provider</h2>
+
+<p>Start by opening up your terminal.  For demonstration purposes I recommend creating a folder called oauth to put both the provider and consumer.</p>
+
+<!-- more -->
+
+
+<pre><code>mkdir oauth &amp;&amp; cd oauth
+rails new provider
+cd provider
+</code></pre>
+
+<p>The next step is to add the oauth-plugin gem to your Gemfile.  For this demo I will also be using devise for authentication.  If you wish to use RSpec as your testing framework, now would be the time to add it.</p>
+
+<p><div class='bogus-wrapper'><notextile><figure class='code'><figcaption><span>Gemfile  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">gem</span> <span class="s1">&#39;devise&#39;</span>
+</span><span class='line'><span class="n">gem</span> <span class="s2">&quot;oauth-plugin&quot;</span><span class="p">,</span> <span class="s2">&quot;&gt;= 0.4.0.rc2&quot;</span>
+</span><span class='line'><span class="n">group</span> <span class="ss">:test</span> <span class="k">do</span><span class="o">&lt;</span><span class="sr">/p&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="sr">&lt;pre&gt;&lt;code&gt;gem &#39;rspec-rails&#39;</span>
+</span><span class='line'><span class="sr">&lt;/</span><span class="n">code</span><span class="o">&gt;&lt;</span><span class="sr">/pre&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="sr">&lt;p&gt;end</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div></p>
+
+<p>You should run <em>bundle install</em> to install the oauth-plugin (and rspec.)</p>
+
+<p>If you are using rspec then run:</p>
+
+<pre><code>rails g rspec:install
+</code></pre>
+
+<p>If you are using devise then you should create your devise install and user.</p>
+
+<pre><code>rails generate devise:install
+rails generate devise User
+</code></pre>
+
+<p>Then create the oauth provider (Note I am using rspec)</p>
+
+<pre><code>rails g oauth_provider --test-framework=rspec
+</code></pre>
+
+<p>And migrate the database</p>
+
+<pre><code>rake db:migrate
+</code></pre>
+
+<p>Might as well do the test database here too</p>
+
+<pre><code>rake db:test:prepare
+</code></pre>
+
+<p>This will generate some files, there are a few changes required for everything to work.  The first is to delete the file <em>spec/controllers/oauth_clients_controller_spec.rb</em> as mentioned in <a href="https://github.com/pelle/oauth-plugin/commit/6e24ec0ee2f3dc871756b2e8a75fa2181ff504f4">this commit</a>.  You should also remove <em>/spec/models/oauth_token_spec.rb</em> as we are dealing exclusively with oauth2.
+The second change is in your <em>config/routes.rb</em> file, add:</p>
+
+<p><div class='bogus-wrapper'><notextile><figure class='code'><figcaption><span>config/routes/rb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">root</span> <span class="ss">:to</span> <span class="o">=&gt;</span> <span class="s2">&quot;oauth_clients#index&quot;</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div></p>
+
+<p>You will also need to add the following methods to your <em>app/controllers/application_controller.rb</em> to make things work as the oauth-plugin gem required a current_user= method.</p>
+
+<p><div class='bogus-wrapper'><notextile><figure class='code'><figcaption><span>app/controllers/application_controller.rb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">def</span> <span class="nf">current_user</span><span class="o">=</span><span class="p">(</span><span class="n">user</span><span class="p">)</span>
+</span><span class='line'>  <span class="n">current_user</span> <span class="o">=</span> <span class="n">user</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div></p>
+
+<p>You need to add the following to your user model:</p>
+
+<p><div class='bogus-wrapper'><notextile><figure class='code'><figcaption><span>app/models/user.rb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">has_many</span> <span class="ss">:client_applications</span>
+</span><span class='line'><span class="n">has_many</span> <span class="ss">:tokens</span><span class="p">,</span> <span class="ss">:class_name</span><span class="o">=&gt;</span><span class="s2">&quot;Oauth2Token&quot;</span><span class="p">,</span><span class="ss">:order</span><span class="o">=&gt;</span><span class="s2">&quot;authorized_at desc&quot;</span><span class="p">,</span><span class="ss">:include</span><span class="o">=&gt;[</span><span class="ss">:client_application</span><span class="o">]</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div></p>
+
+<p>You need to add the following attr_accessor to <em>app/models/oauth_token.rb</em></p>
+
+<p><div class='bogus-wrapper'><notextile><figure class='code'><figcaption><span>app/models/oauth_token.rb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="kp">attr_accessor</span> <span class="ss">:expires_at</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div></p>
+
+<p>The following alias to <em>app/controllers/oauth_controller.rb</em> <strong>and</strong> <em>app/controllers/oauth_clients_controller.rb</em></p>
+
+<p><div class='bogus-wrapper'><notextile><figure class='code'><figcaption><span>app/controllers/oauth_controller.rb|app/controllers/oauth_clients_controller.rb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">alias</span> <span class="ss">:login_required</span> <span class="ss">:authenticate_user!</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div></p>
+
+<p>And finally add the following to <em>config/application.rb</em></p>
+
+<p><div class='bogus-wrapper'><notextile><figure class='code'><figcaption><span>config/application.rb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="nb">require</span> <span class="s1">&#39;oauth/rack/oauth_filter&#39;</span>
+</span><span class='line'><span class="n">config</span><span class="o">.</span><span class="n">middleware</span><span class="o">.</span><span class="n">use</span> <span class="no">OAuth</span><span class="o">::</span><span class="no">Rack</span><span class="o">::</span><span class="no">OAuthFilter</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div></p>
+
+<p>For the purposes of this test, we will use fixtures, I recommend using factories for real testing.  Grab the 4 fixtures files out of <em>spec/fixtures</em> (I got them from the oauth-plugin but they were not included in the generator)</p>
+
+<p>After these files are included, you can run rspec to test what we have so far.</p>
+
+<pre><code>bundle exec rspec spec
+</code></pre>
+
+<p>There should be 23 examples, all passing.</p>
+
+<p>You should now create a basic rspec test for what will be your API call.  Grab my one out of <em>spec/api/v1/data_controller_spec.rb</em>  Also copy the file <em>support/api_helper.rb</em></p>
+
+<p>When you run rspec on this, it should error, you now need to create your API controller.  Since in this example all the API calls will require a valid oauth token, let's create a base controller and then our data controller.</p>
+
+<pre><code>rails g controller API::V1::Base
+rails g controller API::V1::Data
+</code></pre>
+
+<p>Change the DataController so it extends API::V1::BaseController</p>
+
+<p><div class='bogus-wrapper'><notextile><figure class='code'><figcaption><span>app/controllers/api/v1/data_controller.rb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">class</span> <span class="nc">Api</span><span class="o">::</span><span class="no">V1</span><span class="o">::</span><span class="no">DataController</span> <span class="o">&amp;</span><span class="n">lt</span><span class="p">;</span> <span class="no">Api</span><span class="o">::</span><span class="no">V1</span><span class="o">::</span><span class="no">BaseController</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div></p>
+
+<p>Now create the routes, add the following to your <em>config/routes.rb</em> file</p>
+
+<p><div class='bogus-wrapper'><notextile><figure class='code'><figcaption><span>config/routes.rb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">namespace</span> <span class="ss">:api</span> <span class="k">do</span>
+</span><span class='line'>  <span class="n">namespace</span> <span class="ss">:v1</span> <span class="k">do</span><span class="o">&lt;</span><span class="sr">/p&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="sr">&lt;pre&gt;&lt;code&gt;match &quot;data&quot; =&amp;gt; &quot;data#show&quot;</span>
+</span><span class='line'><span class="sr">&lt;/</span><span class="n">code</span><span class="o">&gt;&lt;</span><span class="sr">/pre&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="sr">&lt;p&gt;  end</span>
+</span><span class='line'><span class="sr">end</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div></p>
+
+<p>You will need a show action in your data controller (<em>app/controllers/api/v1/data_controller.rb</em>)</p>
+
+<p><div class='bogus-wrapper'><notextile><figure class='code'><figcaption><span>app/controllers/api/v1/data_controller.rb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="k">def</span> <span class="nf">show</span>
+</span><span class='line'>  <span class="n">respond_with</span> <span class="p">({</span><span class="ss">:super_secret</span> <span class="o">=&gt;</span> <span class="s2">&quot;oauth_data&quot;</span><span class="p">})</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div></p>
+
+<p>You will also need to specify the formats that your controllers responds to in your base controller (<em>app/controllers/api/v1/base_controller.rb</em>)</p>
+
+<p><div class='bogus-wrapper'><notextile><figure class='code'><figcaption><span>app/controllers/api/v1/base_controller.rb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">respond_to</span> <span class="ss">:json</span><span class="p">,</span> <span class="ss">:xml</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div></p>
+
+<p>You should also specify which methods require oauth, since it is all in this case, also add the following to your base controllers (the interactive flag is the equivalant of oauth_or_login_required, we want oauth only so we disable it.</p>
+
+<p><div class='bogus-wrapper'><notextile><figure class='code'><figcaption><span>app/controllers/api/v1/base_controller.rb  </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='ruby'><span class='line'><span class="n">oauthenticate</span> <span class="ss">:interactive</span><span class="o">=&gt;</span><span class="kp">false</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div></p>
+
+<p>If we run our test specs again now, they should pass and there you have it, the beginnings of an Oauth2 API.</p>
+
+<p>Stay tuned for part 2, The Consumer.</p>
+]]></content>
+  </entry>
+  
+</feed>

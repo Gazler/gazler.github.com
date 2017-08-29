@@ -1,0 +1,895 @@
+
+<!DOCTYPE html>
+<!--[if IEMobile 7 ]><html class="no-js iem7"><![endif]-->
+<!--[if lt IE 9]><html class="no-js lte-ie8"><![endif]-->
+<!--[if (gt IE 8)|(gt IEMobile 7)|!(IEMobile)|!(IE)]><!--><html class="no-js" lang="en"><!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <title>Writing Your First Pebble Watchface - Gazler</title>
+  <meta name="author" content="Gary Rennie">
+
+  
+  <meta name="description" content="Please note that this post was written when I first got my hands on the SDK and some things may have changed since then. So, you just got your hands &hellip;">
+  
+
+  <!-- http://t.co/dKP3o1e -->
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  
+  <link rel="canonical" href="http://Gazler.github.com/blog/2013/01/30/writing-your-first-pebble-watchface/">
+  <link href="/favicon.png" rel="icon">
+  <link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+  <script src="/javascripts/modernizr-2.0.js"></script>
+  <script src="/javascripts/ender.js"></script>
+  <script src="/javascripts/octopress.js" type="text/javascript"></script>
+  <link href="/atom.xml" rel="alternate" title="Gazler" type="application/atom+xml">
+  <!--Fonts from Google"s Web font directory at http://google.com/webfonts -->
+<link href="http://fonts.googleapis.com/css?family=PT+Serif:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+<link href="http://fonts.googleapis.com/css?family=PT+Sans:regular,italic,bold,bolditalic" rel="stylesheet" type="text/css">
+
+  
+  <script type="text/javascript">
+    var _gaq = _gaq || [];
+    _gaq.push(['_setAccount', 'UA-28197078-2']);
+    _gaq.push(['_trackPageview']);
+
+    (function() {
+      var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+      ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+    })();
+  </script>
+
+
+</head>
+
+<body   >
+  <header role="banner"><hgroup>
+  <h1><a href="/">Gazler</a></h1>
+  
+    <h2>Brought to you by the founder of Githug!</h2>
+  
+</hgroup>
+
+</header>
+  <nav role="navigation"><ul class="subscription" data-subscription="rss">
+  <li><a href="/atom.xml" rel="subscribe-rss" title="subscribe via RSS">RSS</a></li>
+  
+</ul>
+  
+<form action="http://google.com/search" method="get">
+  <fieldset role="search">
+    <input type="hidden" name="q" value="site:Gazler.github.com" />
+    <input class="search" type="text" name="q" results="0" placeholder="Search"/>
+  </fieldset>
+</form>
+  
+<ul class="main-navigation">
+  <li><a href="/">Blog</a></li>
+  <li><a href="/blog/archives">Archives</a></li>
+  <li><a href="/talks">Talks</a></li>
+</ul>
+
+</nav>
+  <div id="main">
+    <div id="content">
+      <div>
+<article class="hentry" role="article">
+  
+  <header>
+    
+      <h1 class="entry-title">Writing Your First Pebble Watchface</h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2013-01-30T19:26:00+00:00" pubdate data-updated="true">Jan 30<span>th</span>, 2013</time>
+        
+         | <a href="#disqus_thread">Comments</a>
+        
+      </p>
+    
+  </header>
+
+
+<div class="entry-content"><p><strong>Please note that this post was written when I first got my hands on the SDK and some things may have changed since then.</strong></p>
+
+<p>So, you just got your hands on the pebble SDK and are looking to write yourself a watch face?  This post will introduce the creation of a watch face from the prototyping stage to packaging it up and running it on your device.  The watch face I will be using for this tutorial is the &#8220;Times Square&#8221; watch face - the first one I wrote the day I got my hands.  It is based off of the <a href="http://www.tokyoflash.com/en/watch_museum/pimp/pimpinainteasyipblack/">Pimp - Pimpin Ain&#8217;t Easy</a> which I used as my main watch for about 5 or 6 years until I lost it this year.  :(  The watchface took about 2 hours to create from installing the SDK to getting it on my wrist.</p>
+
+<h2>Repository</h2>
+
+<p>The repository is available at <a href="https://github.com/gazler/pebble-times-square">Times Square on Github</a></p>
+
+<!-- more -->
+
+
+<h2>Prototyping</h2>
+
+<p>At the time of writing, there is currently no emulator for pebble.  This makes writing the application with the SDK a case of; writing some code, compiling it, starting your web server, downloading it on your pebble, checking it out, repeat.  This is a fairly slow process which becomes tedious when you are checking if something should be one pixel higher or lower.  For this reason, I wrote a quick prototype of my watch in JavaScript.  The reason for using JavaScript is using canvas, you can quickly simulate the type of functions available in the pebble API.</p>
+
+<p>The HTML structure of my page looks fairly standard, the pebble runs at a resolution of 144x168 and defaults to a black background.</p>
+
+<figure class='code'><figcaption><span>index.html </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+</pre></td><td class='code'><pre><code class='html'><span class='line'><span class="cp">&lt;!DOCTYPE HTML&gt;</span>
+</span><span class='line'><span class="nt">&lt;html&gt;</span>
+</span><span class='line'>  <span class="nt">&lt;head&gt;</span>
+</span><span class='line'>  <span class="nt">&lt;/head&gt;</span>
+</span><span class='line'>  <span class="nt">&lt;body&gt;</span>
+</span><span class='line'>    <span class="nt">&lt;canvas</span> <span class="na">id=</span><span class="s">&quot;canvas&quot;</span> <span class="na">width=</span><span class="s">&quot;144&quot;</span> <span class="na">height=</span><span class="s">&quot;168&quot;</span> <span class="na">style=</span><span class="s">&quot;background: #000000;&quot;</span><span class="nt">&gt;&lt;/canvas&gt;</span>
+</span><span class='line'>  <span class="nt">&lt;/body&gt;</span>
+</span><span class='line'><span class="nt">&lt;/html&gt;</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The javascript is as follows, I have commented the code where approrpriate:</p>
+
+<figure class='code'><figcaption><span>index.html </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+<span class='line-number'>43</span>
+<span class='line-number'>44</span>
+<span class='line-number'>45</span>
+<span class='line-number'>46</span>
+<span class='line-number'>47</span>
+<span class='line-number'>48</span>
+<span class='line-number'>49</span>
+<span class='line-number'>50</span>
+<span class='line-number'>51</span>
+<span class='line-number'>52</span>
+<span class='line-number'>53</span>
+<span class='line-number'>54</span>
+<span class='line-number'>55</span>
+<span class='line-number'>56</span>
+<span class='line-number'>57</span>
+<span class='line-number'>58</span>
+<span class='line-number'>59</span>
+<span class='line-number'>60</span>
+<span class='line-number'>61</span>
+<span class='line-number'>62</span>
+<span class='line-number'>63</span>
+<span class='line-number'>64</span>
+<span class='line-number'>65</span>
+<span class='line-number'>66</span>
+<span class='line-number'>67</span>
+<span class='line-number'>68</span>
+<span class='line-number'>69</span>
+<span class='line-number'>70</span>
+<span class='line-number'>71</span>
+<span class='line-number'>72</span>
+<span class='line-number'>73</span>
+<span class='line-number'>74</span>
+<span class='line-number'>75</span>
+<span class='line-number'>76</span>
+<span class='line-number'>77</span>
+<span class='line-number'>78</span>
+<span class='line-number'>79</span>
+<span class='line-number'>80</span>
+<span class='line-number'>81</span>
+<span class='line-number'>82</span>
+<span class='line-number'>83</span>
+<span class='line-number'>84</span>
+</pre></td><td class='code'><pre><code class='javascript'><span class='line'>  <span class="cm">/* These will be converted to CONSTANTS in the C code, so keeping them</span>
+</span><span class='line'><span class="cm">     uppercase and outside of the main block makes it easiest to port */</span>
+</span><span class='line'>  <span class="kd">var</span> <span class="nx">CELL_WIDTH</span> <span class="o">=</span> <span class="mi">8</span><span class="p">;</span>
+</span><span class='line'>  <span class="kd">var</span> <span class="nx">CELL_HEIGHT</span> <span class="o">=</span> <span class="mi">8</span><span class="p">;</span>
+</span><span class='line'>  <span class="kd">var</span> <span class="nx">CELL_PADDING_TOP</span> <span class="o">=</span> <span class="mi">5</span><span class="p">;</span>
+</span><span class='line'>  <span class="kd">var</span> <span class="nx">CELL_PADDING_RIGHT</span> <span class="o">=</span> <span class="mi">5</span><span class="p">;</span>
+</span><span class='line'>  <span class="kd">var</span> <span class="nx">LEFT_OFFSET</span> <span class="o">=</span> <span class="mi">33</span><span class="p">;</span>
+</span><span class='line'>  <span class="kd">var</span> <span class="nx">TOP_OFFSET</span> <span class="o">=</span> <span class="mi">10</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'>  <span class="cm">/* This function will return a GRect in the C implementation which provides</span>
+</span><span class='line'><span class="cm">     the location of on of the squares that is used to indicate the time. */</span>
+</span><span class='line'>  <span class="kd">function</span> <span class="nx">cell_location</span><span class="p">(</span><span class="nx">row</span><span class="p">,</span><span class="nx">col</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>    <span class="k">return</span> <span class="p">[</span>
+</span><span class='line'>      <span class="p">(</span><span class="nx">row</span> <span class="o">*</span> <span class="p">(</span><span class="nx">CELL_WIDTH</span> <span class="o">+</span> <span class="nx">CELL_PADDING_RIGHT</span><span class="p">))</span> <span class="o">+</span> <span class="nx">LEFT_OFFSET</span><span class="p">,</span>
+</span><span class='line'>      <span class="p">(</span><span class="nx">col</span><span class="o">*</span> <span class="p">(</span><span class="nx">CELL_HEIGHT</span> <span class="o">+</span> <span class="nx">CELL_PADDING_TOP</span><span class="p">))</span> <span class="o">+</span> <span class="nx">TOP_OFFSET</span><span class="p">,</span>
+</span><span class='line'>      <span class="nx">CELL_WIDTH</span><span class="p">,</span>
+</span><span class='line'>      <span class="nx">CELL_HEIGHT</span>
+</span><span class='line'>    <span class="p">];</span>
+</span><span class='line'>  <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="cm">/* Get the canvas so we can draw to it */</span>
+</span><span class='line'>  <span class="kd">var</span> <span class="nx">img</span> <span class="o">=</span> <span class="nb">document</span><span class="p">.</span><span class="nx">getElementById</span><span class="p">(</span><span class="s1">&#39;canvas&#39;</span><span class="p">).</span><span class="nx">getContext</span><span class="p">(</span><span class="s1">&#39;2d&#39;</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="cm">/* This will roughly translate to how we get time in the C version the time</span>
+</span><span class='line'><span class="cm">     doesn&#39;t need to be the current time as we know how this should look */</span>
+</span><span class='line'>  <span class="kd">var</span> <span class="nx">t</span> <span class="o">=</span> <span class="p">{</span>
+</span><span class='line'>    <span class="nx">tm_hour</span><span class="o">:</span> <span class="mi">10</span><span class="p">,</span>
+</span><span class='line'>    <span class="nx">tm_min</span><span class="o">:</span> <span class="mi">57</span>
+</span><span class='line'>  <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="cm">/* This is the main function that is called at the specified interval - in</span>
+</span><span class='line'><span class="cm">     our case this will be called once every minute on the watch. */</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="kd">function</span> <span class="nx">display_layer_update_callback</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>    <span class="cm">/* Empty the canvas */</span>
+</span><span class='line'>    <span class="nx">img</span><span class="p">.</span><span class="nx">clearRect</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">144</span><span class="p">,</span> <span class="mi">168</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="nx">img</span><span class="p">.</span><span class="nx">fillStyle</span> <span class="o">=</span> <span class="s2">&quot;#FFFFFF&quot;</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="kd">var</span> <span class="nx">minutes</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span><span class='line'>    <span class="kd">var</span> <span class="nx">col</span><span class="p">,</span> <span class="nx">row</span><span class="p">,</span> <span class="nx">height</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="cm">/* These loops are responsible for determining which cells to display.</span>
+</span><span class='line'><span class="cm">       It should be fairly trivial to loop through.  */</span>
+</span><span class='line'>    <span class="k">for</span> <span class="p">(</span><span class="nx">col</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="nx">col</span> <span class="o">&lt;</span> <span class="mi">12</span><span class="p">;</span> <span class="nx">col</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>      <span class="k">for</span> <span class="p">(</span><span class="nx">row</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="nx">row</span> <span class="o">&lt;</span> <span class="mi">6</span><span class="p">;</span> <span class="nx">row</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>        <span class="nx">height</span> <span class="o">=</span> <span class="nx">col</span><span class="p">;</span>
+</span><span class='line'>        <span class="cm">/* Hour mode */</span>
+</span><span class='line'>        <span class="k">if</span> <span class="p">(</span><span class="nx">row</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>          <span class="k">if</span> <span class="p">(</span><span class="mi">12</span> <span class="o">-</span> <span class="nx">col</span> <span class="o">&gt;</span> <span class="nx">t</span><span class="p">.</span><span class="nx">tm_hour</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>            <span class="k">continue</span><span class="p">;</span>
+</span><span class='line'>          <span class="p">}</span>
+</span><span class='line'>        <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+</span><span class='line'>            <span class="k">if</span> <span class="p">(</span><span class="nx">minutes</span><span class="o">++</span> <span class="o">&lt;</span> <span class="nx">t</span><span class="p">.</span><span class="nx">tm_min</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>              <span class="nx">height</span> <span class="o">=</span> <span class="p">(</span><span class="mi">11</span> <span class="o">-</span> <span class="nx">col</span><span class="p">);</span>
+</span><span class='line'>            <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+</span><span class='line'>              <span class="k">continue</span><span class="p">;</span>
+</span><span class='line'>            <span class="p">}</span>
+</span><span class='line'>        <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>        <span class="kd">var</span> <span class="nx">a</span> <span class="o">=</span> <span class="nx">cell_location</span><span class="p">(</span><span class="nx">row</span><span class="p">,</span> <span class="nx">height</span><span class="p">);</span>
+</span><span class='line'>        <span class="nx">img</span><span class="p">.</span><span class="nx">fillRect</span><span class="p">(</span> <span class="nx">a</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nx">a</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="nx">a</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="nx">a</span><span class="p">[</span><span class="mi">3</span><span class="p">]);</span>
+</span><span class='line'>      <span class="p">}</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'>  <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'>  <span class="cm">/* Not quite all the correct logic, but it covers the minutes ticking over</span>
+</span><span class='line'><span class="cm">     which is enough for our needs */</span>
+</span><span class='line'>  <span class="kd">function</span> <span class="nx">handle_minute_tick</span><span class="p">()</span> <span class="p">{</span>
+</span><span class='line'>    <span class="nx">t</span><span class="p">.</span><span class="nx">tm_min</span><span class="o">++</span><span class="p">;</span>
+</span><span class='line'>    <span class="k">if</span> <span class="p">(</span><span class="nx">t</span><span class="p">.</span><span class="nx">tm_min</span> <span class="o">==</span> <span class="mi">60</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>      <span class="nx">t</span><span class="p">.</span><span class="nx">tm_min</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span><span class='line'>      <span class="nx">t</span><span class="p">.</span><span class="nx">tm_hour</span><span class="o">++</span><span class="p">;</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'>    <span class="nx">display_layer_update_callback</span><span class="p">();</span>
+</span><span class='line'>  <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="cm">/* Let&#39;s make sure this gets triggered straight away */</span>
+</span><span class='line'>  <span class="nx">handle_minute_tick</span><span class="p">();</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="cm">/* We will call the minute function every second to prevent waiting */</span>
+</span><span class='line'>  <span class="nx">setInterval</span><span class="p">(</span><span class="nx">handle_minute_tick</span><span class="p">,</span> <span class="mi">1000</span><span class="p">);</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>The above code creates the following:</p>
+
+<p><img src="/images/pimp.gif"></p>
+
+<h2>Porting to C</h2>
+
+<p>You are now ready to port this code to C.  This is a fairly straight forward port.  First off you will want to create your watch face using the template provided.</p>
+
+<pre><code>./tools/create_pebble_project.py &lt;path-to&gt;/sdk/ pimp
+</code></pre>
+
+<p>You should see the following output:</p>
+
+<pre><code>Creating project here:
+
+  /home/gazler/development/pebble/pebble-sdk-hb001/pimp
+
+Now run:
+
+  cd pimp
+  ./waf configure
+  ./waf build
+</code></pre>
+
+<p>Run the commands as instructed.  When finished, open the file &#8220;src/pimp.c&#8221; in your favourite text editor (vim) and you will get the following code:</p>
+
+<figure class='code'><figcaption><span>pimp.c </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+</pre></td><td class='code'><pre><code class='c'><span class='line'><span class="cp">#include &quot;pebble_os.h&quot; #include &quot;pebble_app.h&quot;</span>
+</span><span class='line'><span class="cp">#include &quot;pebble_fonts.h&quot;</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">PBL_APP_INFO_SIMPLE</span><span class="p">(</span><span class="s">&quot;Template App&quot;</span><span class="p">,</span> <span class="s">&quot;Your Company&quot;</span><span class="p">,</span> <span class="mi">1</span> <span class="cm">/* App version */</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">Window</span> <span class="n">window</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="kt">void</span> <span class="nf">handle_init</span><span class="p">(</span><span class="n">AppContextRef</span> <span class="n">ctx</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>  <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="n">ctx</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="n">window_init</span><span class="p">(</span><span class="o">&amp;</span><span class="n">window</span><span class="p">,</span> <span class="s">&quot;Window Name&quot;</span><span class="p">);</span>
+</span><span class='line'>  <span class="n">window_stack_push</span><span class="p">(</span><span class="o">&amp;</span><span class="n">window</span><span class="p">,</span> <span class="nb">true</span> <span class="cm">/* Animated */</span><span class="p">);</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="kt">void</span> <span class="nf">pbl_main</span><span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="n">params</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>  <span class="n">PebbleAppHandlers</span> <span class="n">handlers</span> <span class="o">=</span> <span class="p">{</span>
+</span><span class='line'>    <span class="p">.</span><span class="n">init_handler</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">handle_init</span>
+</span><span class='line'>  <span class="p">};</span>
+</span><span class='line'>  <span class="n">app_event_loop</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">handlers</span><span class="p">);</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>This is all you need, you can get this on your pebble now, but it won&#8217;t be that useful to you, it won&#8217;t event display the time!  Here is the full source code for the watch face.  The comments explain what is happening.</p>
+
+<figure class='code'><figcaption><span>pimp.c </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+<span class='line-number'>28</span>
+<span class='line-number'>29</span>
+<span class='line-number'>30</span>
+<span class='line-number'>31</span>
+<span class='line-number'>32</span>
+<span class='line-number'>33</span>
+<span class='line-number'>34</span>
+<span class='line-number'>35</span>
+<span class='line-number'>36</span>
+<span class='line-number'>37</span>
+<span class='line-number'>38</span>
+<span class='line-number'>39</span>
+<span class='line-number'>40</span>
+<span class='line-number'>41</span>
+<span class='line-number'>42</span>
+<span class='line-number'>43</span>
+<span class='line-number'>44</span>
+<span class='line-number'>45</span>
+<span class='line-number'>46</span>
+<span class='line-number'>47</span>
+<span class='line-number'>48</span>
+<span class='line-number'>49</span>
+<span class='line-number'>50</span>
+<span class='line-number'>51</span>
+<span class='line-number'>52</span>
+<span class='line-number'>53</span>
+<span class='line-number'>54</span>
+<span class='line-number'>55</span>
+<span class='line-number'>56</span>
+<span class='line-number'>57</span>
+<span class='line-number'>58</span>
+<span class='line-number'>59</span>
+<span class='line-number'>60</span>
+<span class='line-number'>61</span>
+<span class='line-number'>62</span>
+<span class='line-number'>63</span>
+<span class='line-number'>64</span>
+<span class='line-number'>65</span>
+<span class='line-number'>66</span>
+<span class='line-number'>67</span>
+<span class='line-number'>68</span>
+<span class='line-number'>69</span>
+<span class='line-number'>70</span>
+<span class='line-number'>71</span>
+<span class='line-number'>72</span>
+<span class='line-number'>73</span>
+<span class='line-number'>74</span>
+<span class='line-number'>75</span>
+<span class='line-number'>76</span>
+<span class='line-number'>77</span>
+<span class='line-number'>78</span>
+<span class='line-number'>79</span>
+<span class='line-number'>80</span>
+<span class='line-number'>81</span>
+<span class='line-number'>82</span>
+<span class='line-number'>83</span>
+<span class='line-number'>84</span>
+<span class='line-number'>85</span>
+<span class='line-number'>86</span>
+<span class='line-number'>87</span>
+<span class='line-number'>88</span>
+<span class='line-number'>89</span>
+<span class='line-number'>90</span>
+<span class='line-number'>91</span>
+<span class='line-number'>92</span>
+<span class='line-number'>93</span>
+<span class='line-number'>94</span>
+<span class='line-number'>95</span>
+<span class='line-number'>96</span>
+<span class='line-number'>97</span>
+<span class='line-number'>98</span>
+<span class='line-number'>99</span>
+<span class='line-number'>100</span>
+<span class='line-number'>101</span>
+<span class='line-number'>102</span>
+<span class='line-number'>103</span>
+<span class='line-number'>104</span>
+<span class='line-number'>105</span>
+<span class='line-number'>106</span>
+<span class='line-number'>107</span>
+<span class='line-number'>108</span>
+<span class='line-number'>109</span>
+<span class='line-number'>110</span>
+<span class='line-number'>111</span>
+<span class='line-number'>112</span>
+<span class='line-number'>113</span>
+<span class='line-number'>114</span>
+<span class='line-number'>115</span>
+<span class='line-number'>116</span>
+<span class='line-number'>117</span>
+<span class='line-number'>118</span>
+</pre></td><td class='code'><pre><code class='c'><span class='line'><span class="cm">/* These are the includes required for the pebble os */</span>
+</span><span class='line'><span class="cp">#include &quot;pebble_os.h&quot;</span>
+</span><span class='line'><span class="cp">#include &quot;pebble_app.h&quot;</span>
+</span><span class='line'><span class="cp">#include &quot;pebble_fonts.h&quot;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* Set up your application.  We have left the icon empty for now but will</span>
+</span><span class='line'><span class="cm">   cover how to do that later.  Here is the method signature:</span>
+</span><span class='line'><span class="cm">   define PBL_APP_INFO(name, company, version, icon_resource_id, flags) */</span>
+</span><span class='line'><span class="n">PBL_APP_INFO</span><span class="p">(</span><span class="s">&quot;Times Square&quot;</span><span class="p">,</span> <span class="s">&quot;Gazler&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">INVALID_RESOURCE</span><span class="p">,</span> <span class="n">APP_INFO_WATCH_FACE</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">Window</span> <span class="n">window</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">Layer</span> <span class="n">display_layer</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* These are the variables we defined in our JavaScript earlier.  This will save</span>
+</span><span class='line'><span class="cm">   us trying to work out where the cells should go. */</span>
+</span><span class='line'><span class="cp">#define CELL_WIDTH 8</span>
+</span><span class='line'><span class="cp">#define CELL_HEIGHT 8</span>
+</span><span class='line'><span class="cp">#define CELL_PADDING_RIGHT 5</span>
+</span><span class='line'><span class="cp">#define CELL_PADDING_TOP 5</span>
+</span><span class='line'>
+</span><span class='line'><span class="cp">#define LEFT_OFFSET 33</span>
+</span><span class='line'><span class="cp">#define TOP_OFFSET 10</span>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* This is a port of the same function from the JS - it returns a GRect which</span>
+</span><span class='line'><span class="cm">   is required to draw a rectangle on the display_layer. */</span>
+</span><span class='line'><span class="n">GRect</span> <span class="nf">cell_location</span><span class="p">(</span><span class="kt">int</span> <span class="n">row</span><span class="p">,</span> <span class="kt">int</span> <span class="n">col</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>  <span class="k">return</span> <span class="n">GRect</span><span class="p">((</span><span class="n">row</span> <span class="o">*</span> <span class="p">(</span><span class="n">CELL_WIDTH</span> <span class="o">+</span> <span class="n">CELL_PADDING_RIGHT</span><span class="p">))</span> <span class="o">+</span> <span class="n">LEFT_OFFSET</span><span class="p">,(</span><span class="n">col</span> <span class="o">*</span> <span class="p">(</span><span class="n">CELL_HEIGHT</span> <span class="o">+</span> <span class="n">CELL_PADDING_TOP</span><span class="p">))</span> <span class="o">+</span> <span class="n">TOP_OFFSET</span><span class="p">,</span> <span class="n">CELL_WIDTH</span><span class="p">,</span> <span class="n">CELL_HEIGHT</span><span class="p">);</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="cm">/* This is a port of the JS function. */</span>
+</span><span class='line'><span class="kt">void</span> <span class="nf">display_layer_update_callback</span><span class="p">(</span><span class="n">Layer</span> <span class="o">*</span><span class="n">me</span><span class="p">,</span> <span class="n">GContext</span><span class="o">*</span> <span class="n">ctx</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>  <span class="cm">/* We are not using the layer, this will prevent compile errors */</span>
+</span><span class='line'>  <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="n">me</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="cm">/* This is the object where we will get our time, it is the equivalent of</span>
+</span><span class='line'><span class="cm">     the t variable in our JS version */</span>
+</span><span class='line'>  <span class="n">PblTm</span> <span class="n">t</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="cm">/* Get the current time from our time object */</span>
+</span><span class='line'>  <span class="n">get_time</span><span class="p">(</span><span class="o">&amp;</span><span class="n">t</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="n">graphics_context_set_fill_color</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">GColorWhite</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="kt">int</span> <span class="n">minutes</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span><span class='line'>  <span class="kt">int</span> <span class="n">hour</span> <span class="o">=</span> <span class="n">t</span><span class="p">.</span><span class="n">tm_hour</span><span class="p">;</span>
+</span><span class='line'>  <span class="cm">/* convert 24 hours to 12 hours */</span>
+</span><span class='line'>  <span class="k">if</span> <span class="p">(</span><span class="n">hour</span> <span class="o">&gt;</span> <span class="mi">12</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>    <span class="n">hour</span> <span class="o">=</span> <span class="n">hour</span> <span class="o">-</span> <span class="mi">12</span><span class="p">;</span>
+</span><span class='line'>  <span class="p">}</span>
+</span><span class='line'>  <span class="kt">int</span> <span class="n">row</span><span class="p">,</span> <span class="n">col</span><span class="p">,</span> <span class="n">height</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="k">for</span> <span class="p">(</span><span class="n">col</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">col</span> <span class="o">&lt;</span> <span class="mi">12</span><span class="p">;</span> <span class="n">col</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>    <span class="k">for</span> <span class="p">(</span><span class="n">row</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">row</span> <span class="o">&lt;</span> <span class="mi">6</span><span class="p">;</span> <span class="n">row</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>      <span class="n">height</span> <span class="o">=</span> <span class="n">col</span><span class="p">;</span>
+</span><span class='line'>      <span class="cm">/* Hour mode */</span>
+</span><span class='line'>      <span class="k">if</span> <span class="p">(</span><span class="n">row</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>        <span class="k">if</span> <span class="p">(</span><span class="mi">12</span> <span class="o">-</span> <span class="n">col</span> <span class="o">&gt;</span> <span class="n">hour</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>          <span class="k">continue</span><span class="p">;</span>
+</span><span class='line'>        <span class="p">}</span>
+</span><span class='line'>      <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+</span><span class='line'>        <span class="k">if</span> <span class="p">(</span><span class="n">minutes</span><span class="o">++</span> <span class="o">&lt;</span> <span class="n">t</span><span class="p">.</span><span class="n">tm_min</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>          <span class="n">height</span> <span class="o">=</span> <span class="p">(</span><span class="mi">11</span> <span class="o">-</span> <span class="n">col</span><span class="p">);</span>
+</span><span class='line'>        <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+</span><span class='line'>          <span class="k">continue</span><span class="p">;</span>
+</span><span class='line'>        <span class="p">}</span>
+</span><span class='line'>      <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>      <span class="cm">/* This is very similar to the fillRect function in our JS version.</span>
+</span><span class='line'><span class="cm">         Here is the method signature of graphics_fill_rect</span>
+</span><span class='line'><span class="cm">         void graphics_fill_rect(GContext *ctx, GRect rect, uint8_t corner_radius, GCornerMask corner_mask); */</span>
+</span><span class='line'>      <span class="n">graphics_fill_rect</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">cell_location</span><span class="p">(</span><span class="n">j</span><span class="p">,</span> <span class="n">height</span><span class="p">),</span> <span class="mi">0</span><span class="p">,</span> <span class="n">GCornerNone</span><span class="p">);</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'>  <span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'><span class="kt">void</span> <span class="nf">handle_minute_tick</span><span class="p">(</span><span class="n">AppContextRef</span> <span class="n">ctx</span><span class="p">,</span> <span class="n">PebbleTickEvent</span> <span class="o">*</span><span class="n">t</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>  <span class="cm">/* Prevent the compiler earnings as in the display callback */</span>
+</span><span class='line'>  <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="n">t</span><span class="p">;</span>
+</span><span class='line'>  <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="n">ctx</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="cm">/* Tell the application to rerender the layer */</span>
+</span><span class='line'>  <span class="n">layer_mark_dirty</span><span class="p">(</span><span class="o">&amp;</span><span class="n">display_layer</span><span class="p">);</span>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="kt">void</span> <span class="nf">handle_init</span><span class="p">(</span><span class="n">AppContextRef</span> <span class="n">ctx</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>  <span class="cm">/* You know the drill by know */</span>
+</span><span class='line'>  <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="n">ctx</span><span class="p">;</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="n">window_init</span><span class="p">(</span><span class="o">&amp;</span><span class="n">window</span><span class="p">,</span> <span class="s">&quot;Times Square&quot;</span><span class="p">);</span>
+</span><span class='line'>  <span class="n">window_stack_push</span><span class="p">(</span><span class="o">&amp;</span><span class="n">window</span><span class="p">,</span> <span class="nb">true</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="n">window_set_background_color</span><span class="p">(</span><span class="o">&amp;</span><span class="n">window</span><span class="p">,</span> <span class="n">GColorBlack</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'>  <span class="cm">/* Init the layer for the display */</span>
+</span><span class='line'>  <span class="n">layer_init</span><span class="p">(</span><span class="o">&amp;</span><span class="n">display_layer</span><span class="p">,</span> <span class="n">window</span><span class="p">.</span><span class="n">layer</span><span class="p">.</span><span class="n">frame</span><span class="p">);</span>
+</span><span class='line'>  <span class="n">display_layer</span><span class="p">.</span><span class="n">update_proc</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">display_layer_update_callback</span><span class="p">;</span>
+</span><span class='line'>  <span class="n">layer_add_child</span><span class="p">(</span><span class="o">&amp;</span><span class="n">window</span><span class="p">.</span><span class="n">layer</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">display_layer</span><span class="p">);</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="p">}</span>
+</span><span class='line'>
+</span><span class='line'>
+</span><span class='line'><span class="kt">void</span> <span class="nf">pbl_main</span><span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="n">params</span><span class="p">)</span> <span class="p">{</span>
+</span><span class='line'>  <span class="n">PebbleAppHandlers</span> <span class="n">handlers</span> <span class="o">=</span> <span class="p">{</span>
+</span><span class='line'>    <span class="p">.</span><span class="n">init_handler</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">handle_init</span><span class="p">,</span>
+</span><span class='line'>
+</span><span class='line'>    <span class="cm">/* We want our watch face to update every minute instead of every second */</span>
+</span><span class='line'>    <span class="p">.</span><span class="n">tick_info</span> <span class="o">=</span> <span class="p">{</span>
+</span><span class='line'>      <span class="p">.</span><span class="n">tick_handler</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">handle_minute_tick</span><span class="p">,</span>
+</span><span class='line'>      <span class="p">.</span><span class="n">tick_units</span> <span class="o">=</span> <span class="n">MINUTE_UNIT</span>
+</span><span class='line'>    <span class="p">}</span>
+</span><span class='line'>  <span class="p">};</span>
+</span><span class='line'>  <span class="n">app_event_loop</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">handlers</span><span class="p">);</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<h2>Getting it running</h2>
+
+<p>Run the following commands to compile the watchface for use on pebble:</p>
+
+<pre><code>./waf clean build &amp;&amp; python -m SimpleHTTPServer
+</code></pre>
+
+<p>Then visit the following url on your phone that is linked to your pebble:</p>
+
+<pre><code>http://&lt;YOUR_IP_ADDRESS&gt;:8000
+</code></pre>
+
+<p>Download the <code>.pbw</code> file and you are good to go.</p>
+
+<h2>Adding an icon</h2>
+
+<p>The final thing to do is to add the icon.  Create your icon as a 24x28 png file, using any filename you like.  Create a folder in <code>resources/src</code> called images and save your icon in there.  Then update the <code>resource_map.json</code> file in the same directory to the following.</p>
+
+<figure class='code'><figcaption><span>resource_map.json </span></figcaption>
+ <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+</pre></td><td class='code'><pre><code class='javascript'><span class='line'><span class="p">{</span><span class="s2">&quot;friendlyVersion&quot;</span><span class="o">:</span> <span class="s2">&quot;0.0.1&quot;</span><span class="p">,</span>
+</span><span class='line'> <span class="s2">&quot;versionDefName&quot;</span><span class="o">:</span> <span class="s2">&quot;VERSION&quot;</span><span class="p">,</span>
+</span><span class='line'> <span class="s2">&quot;media&quot;</span><span class="o">:</span> <span class="p">[</span>
+</span><span class='line'>     <span class="p">{</span>
+</span><span class='line'>      <span class="s2">&quot;type&quot;</span><span class="o">:</span><span class="s2">&quot;png&quot;</span><span class="p">,</span>
+</span><span class='line'>      <span class="s2">&quot;defName&quot;</span><span class="o">:</span><span class="s2">&quot;IMAGE_MENU_ICON&quot;</span><span class="p">,</span>
+</span><span class='line'>      <span class="s2">&quot;file&quot;</span><span class="o">:</span><span class="s2">&quot;images/pimpin.png&quot;</span>
+</span><span class='line'>     <span class="p">}</span>
+</span><span class='line'>    <span class="p">]</span>
+</span><span class='line'><span class="p">}</span>
+</span></code></pre></td></tr></table></div></figure>
+
+
+<p>Package up your watch face and you&#8217;re good to go.</p>
+</div>
+
+
+  <footer>
+    <p class="meta">
+      
+  
+
+<span class="byline author vcard">Posted by <span class="fn">Gary Rennie</span></span>
+
+      
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2013-01-30T19:26:00+00:00" pubdate data-updated="true">Jan 30<span>th</span>, 2013</time>
+      
+
+
+    </p>
+    
+      <div class="sharing">
+  
+  <a href="http://twitter.com/share" class="twitter-share-button" data-url="http://Gazler.github.com/blog/2013/01/30/writing-your-first-pebble-watchface/" data-via="TheGazler" data-counturl="http://Gazler.github.com/blog/2013/01/30/writing-your-first-pebble-watchface/" >Tweet</a>
+  
+  
+  <div class="g-plusone" data-size="medium"></div>
+  
+  
+    <div class="fb-like" data-send="true" data-width="450" data-show-faces="false"></div>
+  
+</div>
+
+    
+    <p class="meta">
+      
+        <a class="basic-alignment left" href="/blog/2012/11/19/writing-a-demo-mode-in-backbone-by-overwriting-fetch-and-save/" title="Previous Post: Writing a Demo Mode in Backbone">&laquo; Writing a Demo Mode in Backbone</a>
+      
+      
+        <a class="basic-alignment right" href="/blog/2015/07/18/subdomains-with-phoenix/" title="Next Post: Subdomains With Phoenix">Subdomains With Phoenix &raquo;</a>
+      
+    </p>
+  </footer>
+</article>
+
+  <section>
+    <h1>Comments</h1>
+    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+</div>
+  </section>
+
+</div>
+
+<aside class="sidebar">
+  
+    
+<section class="stackoverflow">
+  <h1>Stack Overflow</h1>
+  <a href="http://stackoverflow.com/users/219743/Gazler">
+  <img src="http://stackoverflow.com/users/flair/219743.png" width="208" height="58" alt="profile for Gazler at Stack Overflow, Q&amp;A for professional and enthusiast programmers" title="profile for Gazler at Stack Overflow, Q&amp;A for professional and enthusiast programmers">
+  </a>
+</section>
+
+
+
+<section>
+  <h1>Recent Posts</h1>
+  <ul id="recent_posts">
+    
+      <li class="post">
+        <a href="/blog/2015/07/18/subdomains-with-phoenix/">Subdomains With Phoenix</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2013/01/30/writing-your-first-pebble-watchface/">Writing Your First Pebble Watchface</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2012/11/19/writing-a-demo-mode-in-backbone-by-overwriting-fetch-and-save/">Writing a Demo Mode in Backbone</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2012/04/24/how-travis-is-teaching-me-to-cook/">How Travis Is Teaching Me To Cook</a>
+      </li>
+    
+      <li class="post">
+        <a href="/blog/2012/04/02/making-backbone-applications-realtime-with-pusher/">Making Backbone Applications Realtime With Pusher</a>
+      </li>
+    
+  </ul>
+</section>
+
+<section>
+  <h1>GitHub Repos</h1>
+  <ul id="gh_repos">
+    <li class="loading">Status updating...</li>
+  </ul>
+  
+  <a href="https://github.com/Gazler">@Gazler</a> on GitHub
+  
+  <script type="text/javascript">
+    $.domReady(function(){
+        if (!window.jXHR){
+            var jxhr = document.createElement('script');
+            jxhr.type = 'text/javascript';
+            jxhr.src = '/javascripts/libs/jXHR.js';
+            var s = document.getElementsByTagName('script')[0];
+            s.parentNode.insertBefore(jxhr, s);
+        }
+
+        github.showRepos({
+            user: 'Gazler',
+            count: 4,
+            skip_forks: true,
+            target: '#gh_repos'
+        });
+    });
+  </script>
+  <script src="/javascripts/github.js" type="text/javascript"> </script>
+</section>
+
+
+<section>
+  <h1>Latest Tweets</h1>
+  <ul id="tweets">
+    <li class="loading">Status updating...</li>
+  </ul>
+  <script type="text/javascript">
+    $.domReady(function(){
+      getTwitterFeed("TheGazler", 4, false);
+    });
+  </script>
+  <script src="/javascripts/twitter.js" type="text/javascript"> </script>
+  
+    <a href="http://twitter.com/TheGazler" class="twitter-follow-button" data-show-count="false">Follow @TheGazler</a>
+  
+</section>
+
+
+
+
+
+  
+</aside>
+
+
+    </div>
+  </div>
+  <footer role="contentinfo"><p>
+  Copyright &copy; 2017 - Gary Rennie -
+  <span class="credit">Powered by <a href="http://octopress.org">Octopress</a></span>
+</p>
+
+</footer>
+  
+
+<script type="text/javascript">
+      var disqus_shortname = 'gazler';
+      
+        
+        // var disqus_developer = 1;
+        var disqus_identifier = 'http://Gazler.github.com/blog/2013/01/30/writing-your-first-pebble-watchface/';
+        var disqus_url = 'http://Gazler.github.com/blog/2013/01/30/writing-your-first-pebble-watchface/';
+        var disqus_script = 'embed.js';
+      
+    (function () {
+      var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+      dsq.src = 'http://' + disqus_shortname + '.disqus.com/' + disqus_script;
+      (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    }());
+</script>
+
+
+
+<div id="fb-root"></div>
+<script>(function(d, s, id) {
+  var js, fjs = d.getElementsByTagName(s)[0];
+  if (d.getElementById(id)) {return;}
+  js = d.createElement(s); js.id = id;
+  js.src = "//connect.facebook.net/en_US/all.js#appId=212934732101925&xfbml=1";
+  fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));</script>
+
+
+
+  <script type="text/javascript">
+    (function() {
+      var script = document.createElement('script'); script.type = 'text/javascript'; script.async = true;
+      script.src = 'https://apis.google.com/js/plusone.js';
+      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(script, s);
+    })();
+  </script>
+
+
+
+  <script type="text/javascript">
+    (function(){
+      var twitterWidgets = document.createElement('script');
+      twitterWidgets.type = 'text/javascript';
+      twitterWidgets.async = true;
+      twitterWidgets.src = 'http://platform.twitter.com/widgets.js';
+      document.getElementsByTagName('head')[0].appendChild(twitterWidgets);
+    })();
+  </script>
+
+
+
+
+
+</body>
+</html>

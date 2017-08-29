@@ -1,0 +1,339 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: phoenix | Gazler]]></title>
+  <link href="http://Gazler.github.com/blog/categories/phoenix/atom.xml" rel="self"/>
+  <link href="http://Gazler.github.com/"/>
+  <updated>2017-08-29T17:44:23+01:00</updated>
+  <id>http://Gazler.github.com/</id>
+  <author>
+    <name><![CDATA[Gary Rennie]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Subdomains With Phoenix]]></title>
+    <link href="http://Gazler.github.com/blog/2015/07/18/subdomains-with-phoenix/"/>
+    <updated>2015-07-18T16:22:00+01:00</updated>
+    <id>http://Gazler.github.com/blog/2015/07/18/subdomains-with-phoenix</id>
+    <content type="html"><![CDATA[<p>A common requirement for applications is to have a subdomain per customer that users belonging to that customer can visit. Example of this include: <a href="https://slack.com">Slack</a> (https://elixir.slack.com, https://phoenix.slack.com, etc.) and <a href="https://readme.io">ReadMe</a>.</p>
+
+<p>This blog post will go through how to set up your Phoenix application so that it can be used in the same way.</p>
+
+<p>The source code for this repository is available at <a href="https://github.com/Gazler/phoenix-subdomain-demo">https://github.com/Gazler/phoenix-subdomain-demo</a> - there is a commit to represent each step in this post.</p>
+
+<h2>Getting Started</h2>
+
+<p>The first thing we will need is a new Phoenix application. Since it is focused on subdomains, I am going to call it subdomainer:</p>
+
+<pre><code>mix phoenix.new subdomainer
+</code></pre>
+
+<p>Once the app has been created and all the dependencies have been installed, start the app and visit it at <a href="http://localhost:4000">http://localhost:4000</a>.</p>
+
+<pre><code>mix phoenix.server
+</code></pre>
+
+<p>Next we need to ensure that it is accessible via a separate domain and subomains, so the following needs to be added to your <code>/etc/hosts</code> file:</p>
+
+<pre><code>127.0.0.1 subdomainer.dev foo.subdomainer.dev bar.subdomainer.dev
+</code></pre>
+
+<p>With these additions, you should also be able to access the application via: <a href="http://subdomainer.dev:4000">http://subdomainer.dev:4000</a>, <a href="http://foo.subdomainer.dev:4000">http://foo.subdomainer.dev:4000</a> and <a href="http://bar.subdomainer.dev:4000">http://bar.subdomainer.dev:4000</a></p>
+
+<p>Currently these all point to the same page, but we are going to modify it so that it displays information about the particular app that we are trying to visit.</p>
+
+<h2>Determining If A Subdomain Has Been Set</h2>
+
+<!-- more -->
+
+
+<p>With the app as it stands, if a user visits http://subdomainer.dev:4000 then we want to display the default Phoenix page that was generated with the application. However if they visit http://foo.subdomainer.dev:4000 or any subdomain then we want to show a different page. For the moment, we won't worry too much about which subdomain is being viewed, only that there is a subdomain present.</p>
+
+<p>We need to configure the application so that it knows which domain is the root domain. This is because you cannot make any guarantees about the number of subdomains. In this instance we know that <code>subdomainer.dev</code> is the root and <code>foo.subdomainer.dev</code> is a subdomain - however our root could be <code>app.subdomainer.dev</code> and the subdomain could be <code>foo.app.subdomainer.dev</code></p>
+
+<p>Replace the following in <code>config/config.exs</code> under the <code>config :subdomainer, Subdomainer.Endpoint</code> block that should be at the top of your file:</p>
+
+<p><div class='bogus-wrapper'><notextile><figure class='code'> <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='elixir'><span class='line'>  <span class="ss">url</span><span class="p">:</span> <span class="p">[</span><span class="ss">host</span><span class="p">:</span> <span class="s2">&quot;localhost&quot;</span><span class="p">]</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div></p>
+
+<p>With:</p>
+
+<p><div class='bogus-wrapper'><notextile><figure class='code'> <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='elixir'><span class='line'>  <span class="ss">url</span><span class="p">:</span> <span class="p">[</span><span class="ss">host</span><span class="p">:</span> <span class="s2">&quot;subdomainer.dev&quot;</span><span class="p">]</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div></p>
+
+<p>We now need to update our endpoint so it knows if a subdomain has been provided in the URL. Create a file <code>lib/subdomainer/plugs/subdomain.ex</code> file with the following:</p>
+
+<p><div class='bogus-wrapper'><notextile><figure class='code'> <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+</pre></td><td class='code'><pre><code class='elixir'><span class='line'><span class="kd">defmodule</span> <span class="nc">Subdomainer.Plug.Subdomain</span> <span class="k">do</span>
+</span><span class='line'>  <span class="kn">import</span> <span class="nc">Plug.Conn</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span>  <span class="na">@doc</span> <span class="no">false</span>
+</span><span class='line'>  <span class="kd">def</span> <span class="n">init</span><span class="p">(</span><span class="n">default</span><span class="p">),</span> <span class="ss">do</span><span class="p">:</span> <span class="n">default</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span>  <span class="na">@doc</span> <span class="no">false</span>
+</span><span class='line'>  <span class="kd">def</span> <span class="n">call</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="n">router</span><span class="p">)</span> <span class="k">do</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">pre</span><span class="o">&gt;&lt;</span><span class="n">code</span><span class="o">&gt;</span><span class="k">case</span> <span class="n">get_subdomain</span><span class="p">(</span><span class="n">conn</span><span class="p">.</span><span class="n">host</span><span class="p">)</span> <span class="k">do</span>
+</span><span class='line'>  <span class="n">subdomain</span> <span class="ow">when</span> <span class="n">byte_size</span><span class="p">(</span><span class="n">subdomain</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">gt</span><span class="p">;</span> <span class="mi">0</span> <span class="o">-&amp;</span><span class="n">gt</span><span class="p">;</span>
+</span><span class='line'>    <span class="n">conn</span>
+</span><span class='line'>    <span class="p">|</span><span class="o">&amp;</span><span class="n">gt</span><span class="p">;</span> <span class="n">router</span><span class="p">.</span><span class="n">call</span><span class="p">(</span><span class="n">router</span><span class="p">.</span><span class="n">init</span><span class="p">({}))</span>
+</span><span class='line'>  <span class="bp">_</span> <span class="o">-&amp;</span><span class="n">gt</span><span class="p">;</span> <span class="n">conn</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'><span class="o">&lt;/</span><span class="n">code</span><span class="o">&gt;&lt;/</span><span class="n">pre</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span>  <span class="k">end</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span>  <span class="kd">defp</span> <span class="n">get_subdomain</span><span class="p">(</span><span class="n">host</span><span class="p">)</span> <span class="k">do</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">pre</span><span class="o">&gt;&lt;</span><span class="n">code</span><span class="o">&gt;</span><span class="n">root_host</span> <span class="p">=</span> <span class="nc">Subdomainer.Endpoint</span><span class="p">.</span><span class="n">config</span><span class="p">(</span><span class="ss">:url</span><span class="p">)[</span><span class="ss">:host</span><span class="p">]</span>
+</span><span class='line'><span class="nc">String</span><span class="p">.</span><span class="n">replace</span><span class="p">(</span><span class="n">host</span><span class="p">,</span> <span class="sx">~r/.?</span><span class="si">#{</span><span class="n">root_host</span><span class="si">}</span><span class="sx">/</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+</span><span class='line'><span class="o">&lt;/</span><span class="n">code</span><span class="o">&gt;&lt;/</span><span class="n">pre</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span>  <span class="k">end</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div></p>
+
+<p>This code here implements the <code>call/2</code> function expected by plug. This second argument we expect is the module that will be used if a subdomain is found. This also needs to be added to <code>lib/subdomainer/endpoint.ex</code> so that we can ensure our plug is called before the router. Add the following line <strong>before</strong> the <code>plug :router, Subdomainer.Router</code> line:</p>
+
+<p><div class='bogus-wrapper'><notextile><figure class='code'> <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+</pre></td><td class='code'><pre><code class='elixir'><span class='line'>  <span class="n">plug</span> <span class="nc">Subdomainer.Plug.Subdomain</span><span class="p">,</span> <span class="nc">Subdomainer.SubdomainRouter</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div></p>
+
+<p>You will need to restart your server and start it again (with <code>mix phoenix.server</code>) every time you make a change to a file in the <code>lib</code> directory as only changes in the <code>web</code> directory do not require a reload.</p>
+
+<p>You can validate that this is working by visiting <a href="http://subdomainer.dev:4000">http://subdomainer.dev:4000</a> which will still work as before, however if you visit <a href="http://foo.subdomainer.dev:4000">http://foo.subdomainer.dev:4000</a> then you will see an error:</p>
+
+<blockquote><p>undefined function: Subdomainer.SubdomainRouter.init/1 (module Subdomainer.SubdomainRouter is not available)</p></blockquote>
+
+<p>This is because this router does not exist yet.</p>
+
+<h2>Adding The Subdomain Router</h2>
+
+<p>To fix the error we just need to create the SubdomainRouter at <code>web/subdomain_router.ex</code>:</p>
+
+<p><div class='bogus-wrapper'><notextile><figure class='code'> <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+<span class='line-number'>14</span>
+<span class='line-number'>15</span>
+<span class='line-number'>16</span>
+<span class='line-number'>17</span>
+<span class='line-number'>18</span>
+<span class='line-number'>19</span>
+<span class='line-number'>20</span>
+<span class='line-number'>21</span>
+<span class='line-number'>22</span>
+<span class='line-number'>23</span>
+<span class='line-number'>24</span>
+<span class='line-number'>25</span>
+<span class='line-number'>26</span>
+<span class='line-number'>27</span>
+</pre></td><td class='code'><pre><code class='elixir'><span class='line'><span class="kd">defmodule</span> <span class="nc">Subdomainer.SubdomainRouter</span> <span class="k">do</span>
+</span><span class='line'>  <span class="kn">use</span> <span class="nc">Subdomainer.Web</span><span class="p">,</span> <span class="ss">:router</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span>  <span class="n">pipeline</span> <span class="ss">:browser</span> <span class="k">do</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">pre</span><span class="o">&gt;&lt;</span><span class="n">code</span><span class="o">&gt;</span><span class="n">plug</span> <span class="ss">:accepts</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;html&quot;</span><span class="p">]</span>
+</span><span class='line'><span class="n">plug</span> <span class="ss">:fetch_session</span>
+</span><span class='line'><span class="n">plug</span> <span class="ss">:fetch_flash</span>
+</span><span class='line'><span class="n">plug</span> <span class="ss">:protect_from_forgery</span>
+</span><span class='line'><span class="o">&lt;/</span><span class="n">code</span><span class="o">&gt;&lt;/</span><span class="n">pre</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span>  <span class="k">end</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span>  <span class="n">scope</span> <span class="s2">&quot;/&quot;</span><span class="p">,</span> <span class="nc">Subdomainer</span> <span class="k">do</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">pre</span><span class="o">&gt;&lt;</span><span class="n">code</span><span class="o">&gt;</span><span class="n">pipe_through</span> <span class="ss">:browser</span> <span class="c1"># Use the default browser stack</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">get</span> <span class="s2">&quot;/&quot;</span><span class="p">,</span> <span class="nc">PageController</span><span class="p">,</span> <span class="ss">:index</span>
+</span><span class='line'><span class="o">&lt;/</span><span class="n">code</span><span class="o">&gt;&lt;/</span><span class="n">pre</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span>  <span class="k">end</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span>  <span class="c1"># Other scopes may use custom stacks.</span>
+</span><span class='line'>  <span class="c1"># scope &quot;/api&quot;, Subdomainer do</span>
+</span><span class='line'>  <span class="c1">#   pipe_through :api</span>
+</span><span class='line'>  <span class="c1"># end</span>
+</span><span class='line'><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div></p>
+
+<p>This fixes the error and now both <a href="http://subdomainer.dev:4000">http://subdomainer.dev:4000</a> and <a href="http://foo.subdomainer.dev:4000">http://foo.subdomainer.dev:4000</a> work as before.</p>
+
+<p>We want the subdomain pages to route somewhere else though - we can simply modify the <code>scope</code> block in the new router to point to a different controller by changing it to:</p>
+
+<p><div class='bogus-wrapper'><notextile><figure class='code'> <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+</pre></td><td class='code'><pre><code class='elixir'><span class='line'>  <span class="n">scope</span> <span class="s2">&quot;/&quot;</span><span class="p">,</span> <span class="nc">Subdomainer.Subdomain</span> <span class="k">do</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">pre</span><span class="o">&gt;&lt;</span><span class="n">code</span><span class="o">&gt;</span><span class="n">pipe_through</span> <span class="ss">:browser</span> <span class="c1"># Use the default browser stack</span>
+</span><span class='line'>
+</span><span class='line'><span class="n">get</span> <span class="s2">&quot;/&quot;</span><span class="p">,</span> <span class="nc">PageController</span><span class="p">,</span> <span class="ss">:index</span>
+</span><span class='line'><span class="o">&lt;/</span><span class="n">code</span><span class="o">&gt;&lt;/</span><span class="n">pre</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span>  <span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div></p>
+
+<p>This will error until you create the required controller, so create <code>web/controllers/subdomain/page_controller.ex</code>:</p>
+
+<p><div class='bogus-wrapper'><notextile><figure class='code'> <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+</pre></td><td class='code'><pre><code class='elixir'><span class='line'><span class="kd">defmodule</span> <span class="nc">Subdomainer.Subdomain.PageController</span> <span class="k">do</span>
+</span><span class='line'>  <span class="kn">use</span> <span class="nc">Subdomainer.Web</span><span class="p">,</span> <span class="ss">:controller</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span>  <span class="kd">def</span> <span class="n">index</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="n">_params</span><span class="p">)</span> <span class="k">do</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">pre</span><span class="o">&gt;&lt;</span><span class="n">code</span><span class="o">&gt;</span><span class="n">text</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="s2">&quot;Subdomain home page&quot;</span><span class="p">)</span>
+</span><span class='line'><span class="o">&lt;/</span><span class="n">code</span><span class="o">&gt;&lt;/</span><span class="n">pre</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span>  <span class="k">end</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span><span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div></p>
+
+<p>You will note that <code>PageController</code> has been used as the name both times. This name is not important, it just needs to match the path from the <code>scope</code> block in the router.</p>
+
+<p>This will work, but you will probably see the following error in your terminal:</p>
+
+<blockquote><p>(exit) an exception was raised: ** (Plug.Conn.AlreadySentError) the response was already sent</p></blockquote>
+
+<p>This is simple to fix - we just need to prevent additional plugs from running if a subdomain is found modify <code>lib/subdomainer/plugs/subdomain.ex</code> to include a call to <a href="http://hexdocs.pm/plug/0.14.0/Plug.Conn.html#halt/1">Plug.Conn.halt/1</a>:</p>
+
+<p><div class='bogus-wrapper'><notextile><figure class='code'> <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+</pre></td><td class='code'><pre><code class='elixir'><span class='line'>  <span class="kd">def</span> <span class="n">call</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="n">router</span><span class="p">)</span> <span class="k">do</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">pre</span><span class="o">&gt;&lt;</span><span class="n">code</span><span class="o">&gt;</span><span class="k">case</span> <span class="n">get_subdomain</span><span class="p">(</span><span class="n">conn</span><span class="p">.</span><span class="n">host</span><span class="p">)</span> <span class="k">do</span>
+</span><span class='line'>  <span class="n">subdomain</span> <span class="ow">when</span> <span class="n">byte_size</span><span class="p">(</span><span class="n">subdomain</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">gt</span><span class="p">;</span> <span class="mi">0</span> <span class="o">-&amp;</span><span class="n">gt</span><span class="p">;</span>
+</span><span class='line'>    <span class="n">conn</span>
+</span><span class='line'>    <span class="p">|</span><span class="o">&amp;</span><span class="n">gt</span><span class="p">;</span> <span class="n">router</span><span class="p">.</span><span class="n">call</span><span class="p">(</span><span class="n">router</span><span class="p">.</span><span class="n">init</span><span class="p">({}))</span>
+</span><span class='line'>    <span class="p">|</span><span class="o">&amp;</span><span class="n">gt</span><span class="p">;</span> <span class="n">halt</span>
+</span><span class='line'>  <span class="bp">_</span> <span class="o">-&amp;</span><span class="n">gt</span><span class="p">;</span> <span class="n">conn</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'><span class="o">&lt;/</span><span class="n">code</span><span class="o">&gt;&lt;/</span><span class="n">pre</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span>  <span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div></p>
+
+<h2>Customize response based on subdomain</h2>
+
+<p>The last thing to do for this is to customize the response based on the which subdomain has been visited. To do this, we will add it to the <code>private</code> storage that exists in a <code>Plug.Conn</code> which you can read about <a href="http://hexdocs.pm/plug/Plug.Conn.html#put_private/3">in the Plug docs</a></p>
+
+<p>We will do this in the <code>Subdomainer.Router</code> module where we did the initial check to see if a subdomain exists by modifying the <code>call</code> function:</p>
+
+<p><div class='bogus-wrapper'><notextile><figure class='code'> <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+<span class='line-number'>7</span>
+<span class='line-number'>8</span>
+<span class='line-number'>9</span>
+<span class='line-number'>10</span>
+<span class='line-number'>11</span>
+<span class='line-number'>12</span>
+<span class='line-number'>13</span>
+</pre></td><td class='code'><pre><code class='elixir'><span class='line'>  <span class="kd">def</span> <span class="n">call</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="n">opts</span><span class="p">)</span> <span class="k">do</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">pre</span><span class="o">&gt;&lt;</span><span class="n">code</span><span class="o">&gt;</span><span class="k">case</span> <span class="n">get_subdomain</span><span class="p">(</span><span class="n">conn</span><span class="p">.</span><span class="n">host</span><span class="p">)</span> <span class="k">do</span>
+</span><span class='line'>  <span class="n">subdomain</span> <span class="ow">when</span> <span class="n">byte_size</span><span class="p">(</span><span class="n">subdomain</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">gt</span><span class="p">;</span> <span class="mi">0</span> <span class="o">-&amp;</span><span class="n">gt</span><span class="p">;</span>
+</span><span class='line'>    <span class="n">conn</span>
+</span><span class='line'>    <span class="p">|</span><span class="o">&amp;</span><span class="n">gt</span><span class="p">;</span> <span class="n">put_private</span><span class="p">(</span><span class="ss">:subdomain</span><span class="p">,</span> <span class="n">subdomain</span><span class="p">)</span>
+</span><span class='line'>    <span class="p">|</span><span class="o">&amp;</span><span class="n">gt</span><span class="p">;</span> <span class="n">router</span><span class="p">.</span><span class="n">call</span><span class="p">(</span><span class="n">router</span><span class="p">.</span><span class="n">init</span><span class="p">({}))</span>
+</span><span class='line'>    <span class="p">|</span><span class="o">&amp;</span><span class="n">gt</span><span class="p">;</span> <span class="n">halt</span>
+</span><span class='line'>  <span class="bp">_</span> <span class="o">-&amp;</span><span class="n">gt</span><span class="p">;</span> <span class="n">conn</span>
+</span><span class='line'><span class="k">end</span>
+</span><span class='line'><span class="o">&lt;/</span><span class="n">code</span><span class="o">&gt;&lt;/</span><span class="n">pre</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span>  <span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div></p>
+
+<p>We can then retrieve this value in the index action of our <code>Subdomainer.Subdomain.PageController</code> like so:</p>
+
+<p><div class='bogus-wrapper'><notextile><figure class='code'> <div class="highlight"><table><tr><td class="gutter"><pre class="line-numbers"><span class='line-number'>1</span>
+<span class='line-number'>2</span>
+<span class='line-number'>3</span>
+<span class='line-number'>4</span>
+<span class='line-number'>5</span>
+<span class='line-number'>6</span>
+</pre></td><td class='code'><pre><code class='elixir'><span class='line'>  <span class="kd">def</span> <span class="n">index</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="n">_params</span><span class="p">)</span> <span class="k">do</span><span class="o">&lt;/</span><span class="n">p</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">pre</span><span class="o">&gt;&lt;</span><span class="n">code</span><span class="o">&gt;</span><span class="n">text</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="s2">&quot;Subdomain home page for </span><span class="si">#{</span><span class="n">conn</span><span class="p">.</span><span class="n">private</span><span class="p">[</span><span class="ss">:subdomain</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span class='line'><span class="o">&lt;/</span><span class="n">code</span><span class="o">&gt;&lt;/</span><span class="n">pre</span><span class="o">&gt;</span>
+</span><span class='line'>
+</span><span class='line'><span class="o">&lt;</span><span class="n">p</span><span class="o">&gt;</span>  <span class="k">end</span>
+</span></code></pre></td></tr></table></div></figure></notextile></div></p>
+
+<p>And that's it! All of the following pages should work and show the correct page <a href="http://subdomainer.dev:4000">http://subdomainer.dev:4000</a>, <a href="http://foo.subdomainer.dev:4000">http://foo.subdomainer.dev:4000</a> and <a href="http://bar.subdomainer.dev:4000">http://bar.subdomainer.dev:4000</a></p>
+
+<p>From here you can extend this to the needs your app. One common task for an application with this feature is to lookup an application from your database based on the subdomain provided and show a 404 if one is not found. Since you know by the time the <code>Subdomainer.SubdomainRouter</code> is reached in the request, the subdomain will be set, you could add a <code>plug</code> to the <code>pipeline</code> to perform this check before the controller action is reached.</p>
+]]></content>
+  </entry>
+  
+</feed>

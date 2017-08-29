@@ -10,7 +10,7 @@ footer: true
 ### Refactoring Techniques with Elixir, Ecto, and Phoenix
 #### Sep 2 2016
 
-Video Not Published Yet
+{% youtube V21DAKtY31Q %}
 
  * [Slides](/talks/refactoring-elixir)
 

@@ -6,6 +6,16 @@ sharing: true
 footer: true
 ---
 
+## Elixir London 2017
+### HTTP/2, Plug to Phoenix, Cowboy too
+#### Aug 17 2017
+
+Video not published yet
+
+ * [Slides](/talks/http2-plug-to-phoenix)
+
+---
+
 ## Elixir Conf 2016
 ### Refactoring Techniques with Elixir, Ecto, and Phoenix
 #### Sep 2 2016
